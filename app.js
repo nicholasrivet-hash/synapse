@@ -3535,11 +3535,20 @@ function buildFactureIndex(factures) {
   return index;
 }
 
+function getClientReferenceId(client) {
+  const dbId = Number(client?.id);
+  if (Number.isInteger(dbId) && dbId > 0) return dbId;
+  const legacyPodioItemId = Number(client?.podio_item_id);
+  if (Number.isInteger(legacyPodioItemId) && legacyPodioItemId !== 0) return legacyPodioItemId;
+  return null;
+}
+
 function buildClientIndex(clients) {
   const index = {};
   for (const client of clients || []) {
-    if (client?.podio_item_id == null) continue;
-    index[String(client.podio_item_id)] = client;
+    const referenceId = getClientReferenceId(client);
+    if (referenceId != null) index[String(referenceId)] = client;
+    if (client?.podio_item_id != null) index[String(client.podio_item_id)] = client;
   }
   return index;
 }
@@ -4041,7 +4050,7 @@ function getFacturePrefillRepairRow(repair) {
   const podioItemId = Number(repair?.podio_item_id);
   if (!Number.isInteger(podioItemId) || podioItemId === 0) return null;
   const linkedClient = resolveClientForRepair(repair);
-  const clientItemIdRaw = Number(repair?.client_item_id ?? linkedClient?.podio_item_id);
+  const clientItemIdRaw = Number(repair?.client_item_id ?? getClientReferenceId(linkedClient));
   const clientItemId = Number.isInteger(clientItemIdRaw) && clientItemIdRaw !== 0 ? clientItemIdRaw : null;
   const manufacturer = cleanNullableText(repair?.manufacturer) || "";
   const model = cleanNullableText(repair?.model) || "";
@@ -4436,7 +4445,7 @@ function buildDefaultFacturePayloadForProject(project) {
   const projectCode = (cleanNullableText(project?.numero) || `P${String(projectId).padStart(4, "0")}`).toUpperCase();
   const projectTitle = cleanNullableText(project?.title) || projectCode;
   const linkedClient = state.clientsByPodioItemId?.[String(project?.client_item_id ?? "")] || null;
-  const clientItemIdRaw = Number(project?.client_item_id ?? linkedClient?.podio_item_id);
+  const clientItemIdRaw = Number(project?.client_item_id ?? getClientReferenceId(linkedClient));
   const clientItemId = Number.isInteger(clientItemIdRaw) && clientItemIdRaw > 0 ? clientItemIdRaw : null;
   if (!clientItemId) {
     throw new Error("Impossible de créer la facture : aucun client lié à ce projet.");
@@ -7324,7 +7333,7 @@ function openRepairModal(repair, options = {}) {
     clientPhone,
     clientEmail,
   );
-  let selectedClientId = String(linkedClient?.podio_item_id ?? repair.client_item_id ?? "").trim();
+  let selectedClientId = String(getClientReferenceId(linkedClient) ?? repair.client_item_id ?? "").trim();
   let selectedClientItemId = selectedClientId ? Number(selectedClientId) : null;
   let selectedClientTitle = linkedClient ? formatClientPrimaryName(linkedClient) : cleanNullableText(repair.client_title);
   let selectedClientCompany = cleanNullableText(linkedClient?.company);
@@ -7401,7 +7410,7 @@ function openRepairModal(repair, options = {}) {
   const rebuildRepairClientPickerRows = () => {
     clientPickerRows = [...state.clients]
       .map((client) => {
-        const id = String(client?.podio_item_id ?? "").trim();
+        const id = String(getClientReferenceId(client) ?? "").trim();
         if (!id) return null;
         return {
           id,
@@ -7419,9 +7428,9 @@ function openRepairModal(repair, options = {}) {
     const selectedClient = state.clientsByPodioItemId[nextId];
     if (!selectedClient) return false;
 
-    const clientItemId = Number(selectedClient.podio_item_id);
+    const clientItemId = getClientReferenceId(selectedClient);
     selectedClientId = nextId;
-    selectedClientItemId = Number.isInteger(clientItemId) && clientItemId > 0 ? clientItemId : null;
+    selectedClientItemId = Number.isInteger(clientItemId) ? clientItemId : null;
     selectedClientTitle = formatClientPrimaryName(selectedClient);
     selectedClientCompany = cleanNullableText(selectedClient.company);
     return true;
@@ -8986,14 +8995,14 @@ function openRepairModal(repair, options = {}) {
         rebuildRepairClientPickerRows();
         let selected = false;
 
-        const createdItemId = Number(createdClient?.podio_item_id);
-        if (Number.isInteger(createdItemId) && createdItemId > 0) {
+        const createdItemId = getClientReferenceId(createdClient);
+        if (Number.isInteger(createdItemId) && createdItemId !== 0) {
           selected = setSelectedRepairClientById(String(createdItemId));
         }
         if (!selected && createdClient?.id != null) {
           const createdRow = getClientById(createdClient.id);
-          const createdRowItemId = Number(createdRow?.podio_item_id);
-          if (Number.isInteger(createdRowItemId) && createdRowItemId > 0) {
+          const createdRowItemId = getClientReferenceId(createdRow);
+          if (Number.isInteger(createdRowItemId)) {
             selected = setSelectedRepairClientById(String(createdRowItemId));
           }
         }
@@ -10702,11 +10711,11 @@ function openProjectModal(options = {}) {
   const clientById = {};
   const rebuildClients = () => {
     sortedClients = [...(state.clients || [])]
-      .filter((client) => Number.isInteger(Number(client?.podio_item_id)))
+      .filter((client) => Number.isInteger(getClientReferenceId(client)))
       .sort((a, b) => normalizeText(formatClientPrimaryName(a)).localeCompare(normalizeText(formatClientPrimaryName(b)), "fr-CA"));
     Object.keys(clientById).forEach((k) => delete clientById[k]);
     for (const client of sortedClients) {
-      clientById[String(client.podio_item_id)] = client;
+      clientById[String(getClientReferenceId(client))] = client;
     }
   };
   rebuildClients();
@@ -11768,7 +11777,7 @@ function openProjectModal(options = {}) {
     `;
     clientList.innerHTML = filtered.length
       ? `${createRow}${filtered.map((client) => `
-        <button type="button" class="facture-picker-item" data-client-id="${escapeHtml(String(client.podio_item_id))}">
+        <button type="button" class="facture-picker-item" data-client-id="${escapeHtml(String(getClientReferenceId(client) || ""))}">
           <span class="facture-picker-item-name">${escapeHtml(formatClientPrimaryName(client))}</span>
           ${cleanNullableText(client.company) ? `<span class="facture-picker-item-sub">(${escapeHtml(cleanNullableText(client.company))})</span>` : ""}
         </button>
@@ -12320,8 +12329,8 @@ function openProjectModal(options = {}) {
         openCreateClientModal({
           onCreated: (createdClient) => {
             rebuildClients();
-            const createdItemId = Number(createdClient?.podio_item_id);
-            if (Number.isInteger(createdItemId) && createdItemId > 0) setClientFromId(String(createdItemId));
+            const createdItemId = getClientReferenceId(createdClient);
+            if (Number.isInteger(createdItemId)) setClientFromId(String(createdItemId));
             clientPickerOpen = false;
             renderAll();
           },
@@ -13016,18 +13025,18 @@ function openCreateFactureModal(options = {}) {
   const clientById = {};
   const rebuildFactureClientChoices = () => {
     sortedClients = [...(state.clients || [])]
-      .filter((client) => Number.isInteger(Number(client?.podio_item_id)))
+      .filter((client) => Number.isInteger(getClientReferenceId(client)))
       .sort((a, b) => normalizeText(formatClientPrimaryName(a)).localeCompare(normalizeText(formatClientPrimaryName(b)), "fr-CA"));
     Object.keys(clientById).forEach((key) => delete clientById[key]);
     for (const client of sortedClients) {
-      clientById[String(client.podio_item_id)] = client;
+      clientById[String(getClientReferenceId(client))] = client;
     }
   };
   rebuildFactureClientChoices();
 
   const mapFactureRepairRow = (repair) => {
     const linkedClient = resolveClientForRepair(repair);
-    const clientItemId = Number(repair?.client_item_id ?? linkedClient?.podio_item_id);
+    const clientItemId = Number(repair?.client_item_id ?? getClientReferenceId(linkedClient));
     const manufacturer = cleanNullableText(repair?.manufacturer) || "";
     const model = cleanNullableText(repair?.model) || "";
     const device = [manufacturer, model].filter(Boolean).join(" ").trim();
@@ -13035,7 +13044,7 @@ function openCreateFactureModal(options = {}) {
       ...repair,
       podioItemId: Number(repair.podio_item_id),
       repCode: formatRepairCode(repair),
-      clientItemId: Number.isInteger(clientItemId) && clientItemId > 0 ? clientItemId : null,
+      clientItemId: Number.isInteger(clientItemId) ? clientItemId : null,
       clientDisplay: linkedClient ? formatClientPrimaryName(linkedClient) : (cleanNullableText(repair?.client_title) || "Sans client"),
       clientCompany: cleanNullableText(linkedClient?.company),
       deviceLabel: device || "Appareil",
@@ -13058,14 +13067,14 @@ function openCreateFactureModal(options = {}) {
     .filter((project) => !isPersonalProject(project))
     .map((project) => {
       const linkedClient = state.clientsByPodioItemId?.[String(project?.client_item_id ?? "")] || null;
-      const clientItemId = Number(project?.client_item_id ?? linkedClient?.podio_item_id);
+      const clientItemId = Number(project?.client_item_id ?? getClientReferenceId(linkedClient));
       return {
         ...project,
         projectId: Number(project.id),
         projectCode: (cleanNullableText(project?.numero) || "").toUpperCase(),
         projectTitle: cleanNullableText(project?.title) || "Projet",
         projectDescription: cleanNullableText(project?.description) || "",
-        clientItemId: Number.isInteger(clientItemId) && clientItemId > 0 ? clientItemId : null,
+        clientItemId: Number.isInteger(clientItemId) ? clientItemId : null,
         clientDisplay: linkedClient ? formatClientPrimaryName(linkedClient) : (cleanNullableText(project?.client_title) || "Sans client"),
         clientCompany: cleanNullableText(linkedClient?.company),
         costLines: normalizeProjectCostLines(project?.cost_lines),
@@ -13488,8 +13497,8 @@ function openCreateFactureModal(options = {}) {
       setClientFromId(String(existingClientId));
     } else {
       const fallbackClient = sortedClients.find((client) => normalizeText(formatClientPrimaryName(client)) === normalizeText(editingFacture?.client_title));
-      if (fallbackClient?.podio_item_id != null) {
-        setClientFromId(String(fallbackClient.podio_item_id));
+      if (getClientReferenceId(fallbackClient) != null) {
+        setClientFromId(String(getClientReferenceId(fallbackClient)));
       } else {
         selectedClientId = Number.isInteger(existingClientId) ? String(existingClientId) : "";
         selectedClientTitle = cleanNullableText(editingFacture?.client_title) || "";
@@ -13827,7 +13836,7 @@ function openCreateFactureModal(options = {}) {
       return;
     }
     clientList.innerHTML = `${createClientRow}${filtered.map((client) => {
-      const id = String(client.podio_item_id);
+      const id = String(getClientReferenceId(client) || "");
       const name = formatClientPrimaryName(client);
       const company = cleanNullableText(client.company);
       return `
@@ -14192,8 +14201,8 @@ function openCreateFactureModal(options = {}) {
     openCreateClientModal({
       onCreated: (createdClient) => {
         rebuildFactureClientChoices();
-        const createdItemId = Number(createdClient?.podio_item_id);
-        const nextClientId = Number.isInteger(createdItemId) && createdItemId > 0 ? String(createdItemId) : "";
+        const createdItemId = getClientReferenceId(createdClient);
+        const nextClientId = Number.isInteger(createdItemId) ? String(createdItemId) : "";
         if (nextClientId) {
           setClientFromId(nextClientId);
         }
@@ -14496,7 +14505,7 @@ function openCreateFactureModal(options = {}) {
     if (!client) throw new Error("Connexion Supabase indisponible.");
     const repairIds = Array.from(selectedRepairs.values())
       .map((repair) => Number(repair?.podioItemId ?? repair?.podio_item_id))
-      .filter((id) => Number.isInteger(id) && id > 0);
+      .filter((id) => Number.isInteger(id) && id !== 0);
     if (!repairIds.length) return false;
 
     const { data, error } = await client
@@ -14763,11 +14772,11 @@ function openCreateDevisModal(typeDocument, options = {}) {
   const clientById = {};
   const rebuildDevisClientChoices = () => {
     sortedClients = [...(state.clients || [])]
-      .filter((client) => Number.isInteger(Number(client?.podio_item_id)))
+      .filter((client) => Number.isInteger(getClientReferenceId(client)))
       .sort((a, b) => normalizeText(formatClientPrimaryName(a)).localeCompare(normalizeText(formatClientPrimaryName(b)), "fr-CA"));
     Object.keys(clientById).forEach((key) => delete clientById[key]);
     for (const client of sortedClients) {
-      clientById[String(client.podio_item_id)] = client;
+      clientById[String(getClientReferenceId(client))] = client;
     }
   };
   rebuildDevisClientChoices();
@@ -15075,7 +15084,7 @@ function openCreateDevisModal(typeDocument, options = {}) {
       return;
     }
     clientList.innerHTML = `${createClientRow}${filtered.map((client) => {
-      const id = String(client.podio_item_id);
+      const id = String(getClientReferenceId(client) || "");
       const name = formatClientPrimaryName(client);
       const company = cleanNullableText(client.company);
       return `
@@ -15091,8 +15100,8 @@ function openCreateDevisModal(typeDocument, options = {}) {
     openCreateClientModal({
       onCreated: (createdClient) => {
         rebuildDevisClientChoices();
-        const createdItemId = Number(createdClient?.podio_item_id);
-        const nextClientId = Number.isInteger(createdItemId) && createdItemId > 0 ? String(createdItemId) : "";
+        const createdItemId = getClientReferenceId(createdClient);
+        const nextClientId = Number.isInteger(createdItemId) ? String(createdItemId) : "";
         if (nextClientId) setClientFromId(nextClientId);
         clientPickerOpen = false;
         if (messageEl) messageEl.textContent = "";
