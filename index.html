@@ -1,0 +1,824 @@
+﻿<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synapse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="appShell" class="app-shell">
+    <header class="site-topbar">
+      <div class="topbar-side" aria-hidden="true"></div>
+
+      <a href="./index.html" class="topbar-brand" aria-label="Accueil">
+        <img class="brand-logo brand-logo-light" src="./ressources/logo-synapse-noir.png" alt="Logo Synapse clair">
+        <img class="brand-logo brand-logo-dark" src="./ressources/logo-synapse-blanc.png" alt="Logo Synapse sombre">
+      </a>
+
+      <div class="topbar-side topbar-side-right">
+        <div class="burger-area">
+          <button id="burgerBtn" class="burger-btn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="burgerMenu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
+          <nav id="burgerMenu" class="burger-menu" aria-label="Menu principal">
+            <p id="menuHello" class="menu-hello">Bonjour Utilisateur</p>
+            <p id="menuRole" class="menu-role"></p>
+            <a href="#accueil" class="menu-link" data-view-link="accueil">Accueil</a>
+            <a href="#bons" class="menu-link" data-view-link="bons">Bons et projets</a>
+            <a href="#factures" class="menu-link" data-view-link="factures">Factures et devis</a>
+            <a href="#depenses" class="menu-link" data-view-link="depenses">D&eacute;penses</a>
+            <a href="#clients" class="menu-link" data-view-link="clients">Clients</a>
+            <a href="#configuration" class="menu-link" data-view-link="configuration">Administration</a>
+            <button id="logoutBtn" type="button" class="menu-link menu-action menu-danger">D&eacute;connexion</button>
+
+            <div class="theme-control" aria-label="Selecteur de theme">
+              <button id="themeLightBtn" type="button" class="theme-label-btn">Clair</button>
+              <button
+                id="themeSwitchBtn"
+                type="button"
+                class="theme-switch"
+                role="switch"
+                aria-checked="false"
+                aria-label="Basculer le theme"
+              >
+                <span class="theme-switch-thumb" aria-hidden="true"></span>
+              </button>
+              <button id="themeDarkBtn" type="button" class="theme-label-btn">Sombre</button>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <div id="developerModeBanner" class="developer-mode-banner" hidden>
+      <span class="developer-mode-banner-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M12 9v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="12" cy="17.2" r="1" fill="currentColor"/>
+        </svg>
+      </span>
+      <span id="developerModeBannerText">Site en mode d&eacute;veloppeur, aucune modification ne sera enregistr&eacute;e.</span>
+    </div>
+
+    <main class="app-content">
+      <section id="accueil" class="view-panel dashboard-grid is-active">
+        <article class="dashboard-card dashboard-span-12 dashboard-anniv-card">
+          <p id="accueilAnnivTitle" class="dashboard-anniv-title">Fondation: 4 mars 2024</p>
+          <p id="accueilAnnivText" class="dashboard-anniv-text">...</p>
+          <p id="accueilAnnivCounter" class="dashboard-anniv-counter">...</p>
+        </article>
+
+        <article class="dashboard-card dashboard-span-12 dashboard-traffic-card">
+          <div class="card-head">
+            <h2>P&eacute;riode d'affluence 2025</h2>
+          </div>
+          <div id="accueilTrafficChart" class="accueil-traffic-chart">
+            <p class="data-empty">Chargement...</p>
+          </div>
+        </article>
+
+        <article class="dashboard-card dashboard-span-3 dashboard-kpi-card">
+          <p class="dashboard-kpi-label">R&eacute;parations</p>
+          <p id="accueilTotalRepairs" class="dashboard-kpi-value">...</p>
+          <p id="accueilCompletedRepairs" class="dashboard-kpi-sub">...</p>
+        </article>
+
+        <article class="dashboard-card dashboard-span-3 dashboard-kpi-card">
+          <p class="dashboard-kpi-label">Temps moyen (cr&eacute;&eacute; &agrave; termin&eacute;)</p>
+          <p id="accueilAvgCycle" class="dashboard-kpi-value">...</p>
+          <p id="accueilAvgCycleSub" class="dashboard-kpi-sub">...</p>
+        </article>
+
+        <article class="dashboard-card dashboard-span-3 dashboard-kpi-card">
+          <p class="dashboard-kpi-label">Dur&eacute;e moyenne d'intervention</p>
+          <p id="accueilAvgOperation" class="dashboard-kpi-value">...</p>
+          <p id="accueilAvgOperationSub" class="dashboard-kpi-sub">...</p>
+        </article>
+
+        <article class="dashboard-card dashboard-span-3 dashboard-kpi-card">
+          <p class="dashboard-kpi-label">Co&ucirc;t moyen des pi&egrave;ces</p>
+          <p id="accueilAvgPartsCost" class="dashboard-kpi-value">...</p>
+          <p id="accueilAvgPartsCostSub" class="dashboard-kpi-sub">...</p>
+        </article>
+
+        <article class="dashboard-card dashboard-span-7">
+          <div class="card-head">
+            <h2>R&eacute;partition des marques</h2>
+            <span id="accueilBrandsMeta" class="card-meta">...</span>
+          </div>
+          <div class="accueil-brand-layout">
+            <div id="accueilBrandChart" class="accueil-brand-chart is-empty" role="img" aria-label="Aucune donn&eacute;e de marques"></div>
+            <ul id="accueilBrandLegend" class="accueil-brand-legend">
+              <li class="data-empty">Chargement...</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="dashboard-card dashboard-span-5">
+          <div class="card-head">
+            <h2>Montants par ann&eacute;e</h2>
+            <span id="accueilYearMeta" class="card-meta">...</span>
+          </div>
+          <div class="accueil-table-wrap">
+            <table class="accueil-table">
+              <thead>
+                <tr>
+                  <th>Ann&eacute;e</th>
+                  <th>R&eacute;parations</th>
+                  <th>Factures</th>
+                  <th>Factur&eacute;</th>
+                  <th>Pay&eacute;</th>
+                </tr>
+              </thead>
+              <tbody id="accueilYearTableBody">
+                <tr><td colspan="5" class="data-empty">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="dashboard-card dashboard-span-12">
+          <div class="card-head">
+            <h2>Statistiques des statuts</h2>
+            <span id="accueilStatusMeta" class="card-meta">...</span>
+          </div>
+          <div class="accueil-table-wrap">
+            <table class="accueil-table accueil-status-table">
+              <thead>
+                <tr>
+                  <th>Statut</th>
+                  <th>Nombre</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody id="accueilStatusTableBody">
+                <tr><td colspan="3" class="data-empty">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="bons" class="view-panel bons-view">
+        <div class="card-head bons-head bons-projects-master-head">
+          <h2>Bons et projets</h2>
+          <div class="bons-projects-master-actions">
+            <div id="bonsHeadActions" class="bons-projects-master-actions-group">
+              <span id="bonsMeta" class="card-meta"></span>
+              <span id="bonsOtherMeta" class="card-meta" hidden></span>
+              <button id="bonsCreateBtn" class="bons-create-btn" type="button">Cr&eacute;er un nouveau bon</button>
+            </div>
+            <div id="projectsHeadActions" class="bons-projects-master-actions-group" hidden>
+              <span id="projectsMeta" class="card-meta"></span>
+              <button id="projectsCreateBtn" class="projects-create-btn" type="button">Creer un nouveau projet</button>
+            </div>
+          </div>
+        </div>
+        <div class="facturation-tabs bons-projects-tabs" role="tablist" aria-label="Bons et projets">
+          <button
+            id="bonsProjectsTabBonsBtn"
+            type="button"
+            class="facturation-tab is-active"
+            data-bons-projects-tab="bons"
+            role="tab"
+            aria-selected="true"
+          >
+            Bons de r&eacute;paration
+          </button>
+          <button
+            id="bonsProjectsTabProjetsBtn"
+            type="button"
+            class="facturation-tab"
+            data-bons-projects-tab="projets"
+            role="tab"
+            aria-selected="false"
+          >
+            Projets
+          </button>
+        </div>
+        <div id="bonsProjectsTabPanelBons" class="bons-projects-tab-panel is-active" data-bons-projects-tab-panel="bons" role="tabpanel" aria-labelledby="bonsProjectsTabBonsBtn">
+          <div class="facturation-tabs bons-repairs-tabs" role="tablist" aria-label="Bons de r&eacute;paration">
+            <button
+              id="bonsRepairsTabBoardBtn"
+              type="button"
+              class="facturation-tab is-active"
+              data-bons-repairs-tab="board"
+              role="tab"
+              aria-selected="true"
+            >
+              Tableau
+            </button>
+            <button
+              id="bonsRepairsTabArchivesBtn"
+              type="button"
+              class="facturation-tab"
+              data-bons-repairs-tab="archives"
+              role="tab"
+              aria-selected="false"
+            >
+              Anciens bons
+            </button>
+          </div>
+          <div class="bons-repairs-tab-panel is-active" data-bons-repairs-tab-panel="board" role="tabpanel" aria-labelledby="bonsRepairsTabBoardBtn">
+            <div id="bonsBoard" class="bons-board">
+              <div class="data-empty">Chargement...</div>
+            </div>
+          </div>
+          <div class="bons-repairs-tab-panel" data-bons-repairs-tab-panel="archives" role="tabpanel" aria-labelledby="bonsRepairsTabArchivesBtn" hidden>
+            <div class="bons-other-panel">
+              <div class="bons-other-toolbar">
+                <label class="bons-other-label" for="bonsOtherStatusFilter">Statut</label>
+                <select id="bonsOtherStatusFilter" class="bons-other-select"></select>
+                <input
+                  id="bonsOtherSearchInput"
+                  class="bons-other-search-input"
+                  type="search"
+                  placeholder="Rechercher un bon (REP, client, appareil...)"
+                >
+              </div>
+              <div class="bons-other-table-wrap">
+                <table class="bons-other-table">
+                  <thead>
+                    <tr>
+                      <th>Bon</th>
+                      <th>Statut</th>
+                      <th>Client</th>
+                      <th>Appareil</th>
+                      <th>Maj</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bonsOtherTableBody">
+                    <tr><td colspan="5" class="data-empty">Aucun bon.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="bonsProjectsTabPanelProjets" class="bons-projects-tab-panel" data-bons-projects-tab-panel="projets" role="tabpanel" aria-labelledby="bonsProjectsTabProjetsBtn" hidden>
+          <div class="facturation-tabs projects-tabs" role="tablist" aria-label="Projets">
+            <button id="projectsTabBoardBtn" type="button" class="facturation-tab is-active" data-projects-tab="board" role="tab" aria-selected="true">Tableau</button>
+            <button id="projectsTabArchivesBtn" type="button" class="facturation-tab" data-projects-tab="archives" role="tab" aria-selected="false">Anciens projets</button>
+          </div>
+          <div class="projects-tab-panel is-active" data-projects-tab-panel="board" role="tabpanel" aria-labelledby="projectsTabBoardBtn">
+            <div id="projectsList" class="projects-list">
+              <div class="data-empty">Chargement...</div>
+            </div>
+          </div>
+          <div class="projects-tab-panel" data-projects-tab-panel="archives" role="tabpanel" aria-labelledby="projectsTabArchivesBtn" hidden>
+            <div id="projectsArchivedList" class="projects-list">
+              <div class="data-empty">Aucun ancien projet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="clients" class="view-panel clients-view">
+        <div class="card-head clients-head">
+          <h2>Clients</h2>
+          <span id="clientsMeta" class="card-meta"></span>
+        </div>
+        <div class="clients-toolbar">
+          <input id="clientsSearchInput" class="clients-search-input" type="search" placeholder="Rechercher un client (nom, entreprise, telephone, courriel...)">
+          <div class="clients-toolbar-actions">
+            <button id="clientsRefreshBtn" class="clients-refresh-btn" type="button" aria-label="Actualiser" title="Actualiser">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-2.6-6.4"/>
+                <path d="M21 4v5h-5"/>
+              </svg>
+            </button>
+            <button id="clientsAddBtn" class="clients-add-btn" type="button">Ajouter un nouveau client</button>
+          </div>
+        </div>
+        <div class="clients-table-wrap">
+          <table class="clients-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Entreprise</th>
+                <th>Telephone</th>
+                <th>Courriel</th>
+                <th>Adresse</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <tr>
+                <td colspan="6" class="data-empty">Chargement...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="factures" class="view-panel factures-view">
+        <div class="card-head factures-head">
+          <h2>Factures et devis</h2>
+          <div class="factures-head-actions">
+            <span id="facturesMeta" class="card-meta"></span>
+            <button id="facturesCreateBtn" class="factures-create-btn" type="button">Cr&eacute;er une nouvelle facture</button>
+          </div>
+        </div>
+        <div class="facturation-tabs" role="tablist" aria-label="Factures et devis">
+          <button
+            id="facturationTabFacturesBtn"
+            type="button"
+            class="facturation-tab is-active"
+            data-facturation-tab="factures"
+            role="tab"
+            aria-selected="true"
+          >
+            Factures
+          </button>
+          <button
+            id="facturationTabEstimationsBtn"
+            type="button"
+            class="facturation-tab"
+            data-facturation-tab="estimations"
+            role="tab"
+            aria-selected="false"
+          >
+            Estimations
+          </button>
+          <button
+            id="facturationTabSoumissionsBtn"
+            type="button"
+            class="facturation-tab"
+            data-facturation-tab="soumissions"
+            role="tab"
+            aria-selected="false"
+          >
+            Soumissions
+          </button>
+        </div>
+        <div class="factures-toolbar">
+          <input id="facturesSearchInput" class="factures-search-input" type="search" placeholder="Rechercher une facture (num&eacute;ro, client, REP, &eacute;tat...)">
+          <div id="facturesToolbarFiltersFactures" class="factures-toolbar-filters">
+            <label class="factures-filter-label" for="facturesYearFilterSelect">Ann&eacute;e</label>
+            <select id="facturesYearFilterSelect" class="factures-filter-select">
+              <option value="all">Toutes les annees</option>
+              <option value="current">Annee en cours</option>
+              <option value="previous">Annees anterieures</option>
+            </select>
+            <label class="factures-filter-label" for="facturesStatusFilterSelect">Paiement</label>
+            <select id="facturesStatusFilterSelect" class="factures-filter-select">
+              <option value="all">Tous</option>
+              <option value="paid">Payees</option>
+              <option value="unpaid">Non payees</option>
+              <option value="overdue">En retard</option>
+            </select>
+          </div>
+          <div id="facturesToolbarFiltersDevis" class="factures-toolbar-filters" hidden>
+            <label class="factures-filter-label" for="devisStatusFilterSelect">Statut</label>
+            <select id="devisStatusFilterSelect" class="factures-filter-select">
+              <option value="all">Tous</option>
+              <option value="en_redaction">En redaction</option>
+              <option value="emise">Emise</option>
+              <option value="accepte">Accepte</option>
+              <option value="refuse">Refuse</option>
+              <option value="annule">Annule</option>
+              <option value="echoue">Echoue</option>
+            </select>
+          </div>
+        </div>
+        <div class="factures-table-wrap">
+          <table class="factures-table">
+            <thead>
+              <tr id="facturesTableHeadRow">
+                <th>No de facture</th>
+                <th>Client</th>
+                <th>Date d'&eacute;mission</th>
+                <th>Date d'echeance</th>
+                <th>Montant total</th>
+                <th>Ref.</th>
+                <th>Etat</th>
+                <th>PDF</th>
+              </tr>
+            </thead>
+            <tbody id="facturesTableBody">
+              <tr>
+                <td colspan="8" class="data-empty">Chargement...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="depenses" class="view-panel expenses-view">
+        <div class="card-head expenses-head">
+          <h2>D&eacute;penses</h2>
+          <div class="expenses-head-actions">
+            <span id="expensesMeta" class="card-meta"></span>
+            <button id="expensesCreateBtn" class="expenses-create-btn" type="button">Ajouter une d&eacute;pense</button>
+          </div>
+        </div>
+        <div class="expenses-table-wrap">
+          <table class="expenses-table">
+            <thead>
+              <tr>
+                <th>Titre</th>
+                <th>Description</th>
+                <th>Date d'achat</th>
+                <th>Prix</th>
+                <th>Facture</th>
+              </tr>
+            </thead>
+            <tbody id="expensesTableBody">
+              <tr>
+                <td colspan="5" class="data-empty">Chargement...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="configuration" class="view-panel configuration-view">
+        <div class="card-head configuration-head">
+          <h2>Administration</h2>
+        </div>
+        <div class="configuration-card">
+          <div class="configuration-tabs" role="tablist" aria-label="Administration">
+            <button
+              id="configTabHonorairesBtn"
+              type="button"
+              class="configuration-tab is-active"
+              data-config-tab="honoraires"
+              role="tab"
+              aria-selected="true"
+              aria-controls="configTabPanelHonoraires"
+            >
+              Honoraires
+            </button>
+            <button
+              id="configTabEntrepriseBtn"
+              type="button"
+              class="configuration-tab"
+              data-config-tab="entreprise"
+              role="tab"
+              aria-selected="false"
+              aria-controls="configTabPanelEntreprise"
+            >
+              Entreprise
+            </button>
+            <button
+              id="configTabAchatsBtn"
+              type="button"
+              class="configuration-tab"
+              data-config-tab="achats"
+              role="tab"
+              aria-selected="false"
+              aria-controls="configTabPanelAchats"
+            >
+              Achats
+            </button>
+            <button
+              id="configTabDeveloppementBtn"
+              type="button"
+              class="configuration-tab"
+              data-config-tab="developpement"
+              role="tab"
+              aria-selected="false"
+              aria-controls="configTabPanelDeveloppement"
+            >
+              D&eacute;veloppement
+            </button>
+            <button
+              id="configTabDocumentsFiscauxBtn"
+              type="button"
+              class="configuration-tab"
+              data-config-tab="documents-fiscaux"
+              role="tab"
+              aria-selected="false"
+              aria-controls="configTabPanelDocumentsFiscaux"
+            >
+              Documents fiscaux
+            </button>
+          </div>
+
+          <div id="configTabPanelHonoraires" class="configuration-tab-panel is-active" data-config-tab-panel="honoraires" role="tabpanel" aria-labelledby="configTabHonorairesBtn">
+            <div class="configuration-panel-head">
+              <button id="configHonorairesEditBtn" class="configuration-edit-btn" type="button" aria-label="Modifier les honoraires" title="Modifier les honoraires">
+                <span class="icon-pencil" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                    <path d="m12.6 7.4 4 4"/>
+                  </svg>
+                </span>
+              </button>
+            </div>
+            <div class="configuration-grid configuration-grid--stack">
+              <div class="configuration-field">
+                <label for="configLaborRateDiagnosticInput" class="configuration-label">Taux r&eacute;duit</label>
+                <p id="configLaborRateDiagnosticText" class="configuration-value-text">-</p>
+                <input id="configLaborRateDiagnosticInput" class="configuration-rate-input" type="number" min="0" step="0.01" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configLaborRateStandardInput" class="configuration-label">Taux standard</label>
+                <p id="configLaborRateStandardText" class="configuration-value-text">-</p>
+                <input id="configLaborRateStandardInput" class="configuration-rate-input" type="number" min="0" step="0.01" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configLaborRateSecondaryInput" class="configuration-label">Taux de service acc&eacute;l&eacute;r&eacute;</label>
+                <p id="configLaborRateSecondaryText" class="configuration-value-text">-</p>
+                <input id="configLaborRateSecondaryInput" class="configuration-rate-input" type="number" min="0" step="0.01" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configLaborRateEstimationInput" class="configuration-label">Taux d'estimation</label>
+                <p id="configLaborRateEstimationText" class="configuration-value-text">-</p>
+                <input id="configLaborRateEstimationInput" class="configuration-rate-input" type="number" min="0" step="0.01" autocomplete="off" hidden>
+              </div>
+            </div>
+            <div id="configHonorairesControls" class="configuration-rate-controls" hidden>
+              <button id="configHonorairesCancelBtn" class="configuration-cancel-btn" type="button">Annuler</button>
+              <button id="configHonorairesSaveBtn" class="configuration-save-btn" type="button">Enregistrer</button>
+            </div>
+          </div>
+
+          <div id="configTabPanelEntreprise" class="configuration-tab-panel" data-config-tab-panel="entreprise" role="tabpanel" aria-labelledby="configTabEntrepriseBtn" hidden>
+            <div class="configuration-panel-head">
+              <button id="configEntrepriseEditBtn" class="configuration-edit-btn" type="button" aria-label="Modifier les taxes" title="Modifier les taxes">
+                <span class="icon-pencil" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                    <path d="m12.6 7.4 4 4"/>
+                  </svg>
+                </span>
+              </button>
+            </div>
+            <div class="configuration-grid configuration-grid--stack">
+              <div class="configuration-field">
+                <label for="configCompanyNameInput" class="configuration-label">Nom de l'entreprise</label>
+                <p id="configCompanyNameText" class="configuration-value-text">-</p>
+                <input id="configCompanyNameInput" class="configuration-rate-input" type="text" maxlength="120" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyPhoneInput" class="configuration-label">T&eacute;l&eacute;phone</label>
+                <p id="configCompanyPhoneText" class="configuration-value-text">-</p>
+                <input id="configCompanyPhoneInput" class="configuration-rate-input" type="text" maxlength="40" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyEmailInput" class="configuration-label">Courriel</label>
+                <p id="configCompanyEmailText" class="configuration-value-text">-</p>
+                <input id="configCompanyEmailInput" class="configuration-rate-input" type="text" maxlength="120" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyAddress1Input" class="configuration-label">Adresse (ligne 1)</label>
+                <p id="configCompanyAddress1Text" class="configuration-value-text">-</p>
+                <input id="configCompanyAddress1Input" class="configuration-rate-input" type="text" maxlength="160" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyAddress2Input" class="configuration-label">Adresse (ligne 2)</label>
+                <p id="configCompanyAddress2Text" class="configuration-value-text">-</p>
+                <input id="configCompanyAddress2Input" class="configuration-rate-input" type="text" maxlength="160" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyCityInput" class="configuration-label">Ville</label>
+                <p id="configCompanyCityText" class="configuration-value-text">-</p>
+                <input id="configCompanyCityInput" class="configuration-rate-input" type="text" maxlength="80" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyProvinceInput" class="configuration-label">Province</label>
+                <p id="configCompanyProvinceText" class="configuration-value-text">-</p>
+                <input id="configCompanyProvinceInput" class="configuration-rate-input" type="text" maxlength="60" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyPostalCodeInput" class="configuration-label">Code postal</label>
+                <p id="configCompanyPostalCodeText" class="configuration-value-text">-</p>
+                <input id="configCompanyPostalCodeInput" class="configuration-rate-input" type="text" maxlength="20" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyCountryInput" class="configuration-label">Pays</label>
+                <p id="configCompanyCountryText" class="configuration-value-text">-</p>
+                <input id="configCompanyCountryInput" class="configuration-rate-input" type="text" maxlength="60" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configCompanyLogoPathInput" class="configuration-label">Chemin du logo</label>
+                <p id="configCompanyLogoPathText" class="configuration-value-text">-</p>
+                <input id="configCompanyLogoPathInput" class="configuration-rate-input" type="text" maxlength="260" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configTpsNumberInput" class="configuration-label">Num&eacute;ro TPS</label>
+                <p id="configTpsNumberText" class="configuration-value-text">-</p>
+                <input id="configTpsNumberInput" class="configuration-rate-input" type="text" maxlength="32" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configTpsRateInput" class="configuration-label">TPS</label>
+                <p id="configTpsRateText" class="configuration-value-text">-</p>
+                <input id="configTpsRateInput" class="configuration-rate-input" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configTvqNumberInput" class="configuration-label">Num&eacute;ro TVQ</label>
+                <p id="configTvqNumberText" class="configuration-value-text">-</p>
+                <input id="configTvqNumberInput" class="configuration-rate-input" type="text" maxlength="32" autocomplete="off" hidden>
+              </div>
+              <div class="configuration-field">
+                <label for="configTvqRateInput" class="configuration-label">TVQ</label>
+                <p id="configTvqRateText" class="configuration-value-text">-</p>
+                <input id="configTvqRateInput" class="configuration-rate-input" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" hidden>
+              </div>
+            </div>
+            <div id="configEntrepriseControls" class="configuration-rate-controls" hidden>
+              <button id="configEntrepriseCancelBtn" class="configuration-cancel-btn" type="button">Annuler</button>
+              <button id="configEntrepriseSaveBtn" class="configuration-save-btn" type="button">Enregistrer</button>
+            </div>
+          </div>
+          <div id="configTabPanelAchats" class="configuration-tab-panel" data-config-tab-panel="achats" role="tabpanel" aria-labelledby="configTabAchatsBtn" hidden>
+            <div class="configuration-panel-head">
+              <button id="configAchatsEditBtn" class="configuration-edit-btn" type="button" aria-label="Modifier les liens d'achats" title="Modifier les liens d'achats">
+                <span class="icon-pencil" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                    <path d="m12.6 7.4 4 4"/>
+                  </svg>
+                </span>
+              </button>
+            </div>
+            <div id="configPurchaseLinksList" class="configuration-purchase-links"></div>
+            <div id="configAchatsControls" class="configuration-rate-controls" hidden>
+              <button id="configAchatsCancelBtn" class="configuration-cancel-btn" type="button">Annuler</button>
+              <button id="configAchatsSaveBtn" class="configuration-save-btn" type="button">Enregistrer</button>
+            </div>
+          </div>
+          <div id="configTabPanelDeveloppement" class="configuration-tab-panel" data-config-tab-panel="developpement" role="tabpanel" aria-labelledby="configTabDeveloppementBtn" hidden>
+            <div class="configuration-grid configuration-grid--stack">
+              <div class="configuration-field configuration-field-toggle">
+                <div>
+                  <div class="configuration-label-with-info">
+                    <p class="configuration-label configuration-label-static">Mode d&eacute;veloppeur</p>
+                    <button
+                      type="button"
+                      class="configuration-info-btn"
+                      aria-label="Information sur le mode d&eacute;veloppeur"
+                    >i</button>
+                    <div class="configuration-info-tooltip" role="tooltip">
+                      Le mode d&eacute;veloppeur force un mode local temporaire (aucune &eacute;criture en base).
+                    </div>
+                  </div>
+                </div>
+                <div class="configuration-toggle-row" aria-label="Mode d&eacute;veloppeur">
+                  <button id="configDeveloperModeOffBtn" type="button" class="theme-label-btn configuration-toggle-label">D&eacute;sactiv&eacute;</button>
+                  <button
+                    id="configDeveloperModeSwitchBtn"
+                    type="button"
+                    class="theme-switch"
+                    role="switch"
+                    aria-checked="false"
+                    aria-label="Basculer le mode d&eacute;veloppeur"
+                  >
+                    <span class="theme-switch-thumb" aria-hidden="true"></span>
+                  </button>
+                  <button id="configDeveloperModeOnBtn" type="button" class="theme-label-btn configuration-toggle-label">Activ&eacute;</button>
+                </div>
+              </div>
+            </div>
+            <div id="configDeveloppementControls" class="configuration-rate-controls" hidden>
+              <button id="configDeveloppementCancelBtn" class="configuration-cancel-btn" type="button">Annuler</button>
+              <button id="configDeveloppementSaveBtn" class="configuration-save-btn" type="button">Enregistrer</button>
+            </div>
+          </div>
+          <div id="configTabPanelDocumentsFiscaux" class="configuration-tab-panel" data-config-tab-panel="documents-fiscaux" role="tabpanel" aria-labelledby="configTabDocumentsFiscauxBtn" hidden>
+            <div class="configuration-tax-reports-head">
+              <div>
+                <div class="configuration-label-with-info">
+                  <p class="configuration-section-subtitle configuration-label-static">Documents fiscaux</p>
+                  <button type="button" class="configuration-info-btn" aria-label="Informations sur les documents fiscaux">i</button>
+                  <div class="configuration-info-tooltip">Les rapports annuels se basent sur la date d'&eacute;mission des factures et sont r&eacute;g&eacute;n&eacute;r&eacute;s automatiquement lors des mises &agrave; jour de facturation.</div>
+                </div>
+              </div>
+            </div>
+            <div id="configTaxReportsList" class="configuration-tax-reports"></div>
+          </div>
+          <p id="configMessage" class="configuration-message"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="repairModal" class="repair-modal" hidden>
+    <div class="repair-modal-backdrop" data-modal-close="true"></div>
+    <div class="repair-modal-panel" role="dialog" aria-modal="true" aria-labelledby="repairModalTitle">
+      <div class="repair-modal-head">
+        <h3 id="repairModalTitle">Reparation</h3>
+        <div class="repair-modal-head-actions">
+          <button id="repairModalClientEditBtn" class="repair-modal-icon-btn" type="button" aria-label="Modifier" title="Modifier">
+            <span class="icon-pencil" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                <path d="m12.6 7.4 4 4"/>
+              </svg>
+            </span>
+          </button>
+          <button id="repairModalCloseBtn" class="repair-modal-close" type="button" aria-label="Fermer">&times;</button>
+        </div>
+      </div>
+      <div id="repairModalBody" class="repair-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="clientModal" class="client-modal" hidden>
+    <div class="client-modal-backdrop" data-client-modal-close="true"></div>
+    <div class="client-modal-panel" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+      <div class="client-modal-head">
+        <h3 id="clientModalTitle">Client</h3>
+        <div class="client-modal-head-actions">
+          <button id="clientModalEditBtn" class="client-modal-edit-btn" type="button" aria-label="Modifier le client" title="Modifier le client">
+            <span class="icon-pencil" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                <path d="m12.6 7.4 4 4"/>
+              </svg>
+            </span>
+          </button>
+          <button id="clientModalCloseBtn" class="client-modal-close" type="button" aria-label="Fermer">&times;</button>
+        </div>
+      </div>
+      <div id="clientModalBody" class="client-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="factureModal" class="facture-modal" hidden>
+    <div class="facture-modal-backdrop" data-facture-modal-close="true"></div>
+    <div class="facture-modal-panel" role="dialog" aria-modal="true" aria-labelledby="factureModalTitle">
+      <div class="facture-modal-head">
+        <h3 id="factureModalTitle">Nouvelle facture</h3>
+        <button id="factureModalCloseBtn" class="facture-modal-close" type="button" aria-label="Fermer">&times;</button>
+      </div>
+      <div id="factureModalBody" class="facture-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="projectModal" class="facture-modal" hidden>
+    <div class="facture-modal-backdrop" data-project-modal-close="true"></div>
+    <div class="facture-modal-panel project-modal-panel" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+      <div class="facture-modal-head">
+        <h3 id="projectModalTitle">Nouveau projet</h3>
+        <div class="facture-modal-head-actions">
+          <button id="projectFactureActionBtn" type="button" class="bons-pill bons-pill-issued bons-pill-create-facture-btn project-facture-action-btn" hidden>Émettre la facture</button>
+          <button id="projectModalEditBtn" class="repair-modal-icon-btn" type="button" aria-label="Modifier" title="Modifier" hidden>
+            <span class="icon-pencil" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 20h4l10-10a1.6 1.6 0 0 0 0-2.2l-1.8-1.8a1.6 1.6 0 0 0-2.2 0L4 16v4Z"/>
+                <path d="m12.6 7.4 4 4"/>
+              </svg>
+            </span>
+          </button>
+          <button id="projectModalCloseBtn" class="facture-modal-close" type="button" aria-label="Fermer">&times;</button>
+        </div>
+      </div>
+      <div id="projectModalBody" class="facture-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="expenseModal" class="facture-modal" hidden>
+    <div class="facture-modal-backdrop" data-expense-modal-close="true"></div>
+    <div class="facture-modal-panel expense-modal-panel" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
+      <div class="facture-modal-head">
+        <h3 id="expenseModalTitle">Nouvelle d&eacute;pense</h3>
+        <button id="expenseModalCloseBtn" class="facture-modal-close" type="button" aria-label="Fermer">&times;</button>
+      </div>
+      <div id="expenseModalBody" class="facture-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="facturePdfModal" class="facture-pdf-modal" hidden>
+    <div class="facture-pdf-modal-backdrop" data-facture-pdf-modal-close="true"></div>
+    <div class="facture-pdf-modal-panel" role="dialog" aria-modal="true" aria-labelledby="facturePdfModalTitle">
+      <div class="facture-pdf-modal-head">
+        <h3 id="facturePdfModalTitle">Aper&ccedil;u PDF</h3>
+        <div class="facture-pdf-modal-head-actions">
+          <button id="facturePdfPrevBtn" class="facture-pdf-modal-btn" type="button" title="Page pr&eacute;c&eacute;dente" aria-label="Page pr&eacute;c&eacute;dente">&lt;</button>
+          <span id="facturePdfPageInfo" class="facture-pdf-page-info">- / -</span>
+          <button id="facturePdfNextBtn" class="facture-pdf-modal-btn" type="button" title="Page suivante" aria-label="Page suivante">&gt;</button>
+          <button id="facturePdfZoomOutBtn" class="facture-pdf-modal-btn" type="button" title="Zoom -25%" aria-label="Zoom -25%">-</button>
+          <button id="facturePdfZoomInBtn" class="facture-pdf-modal-btn" type="button" title="Zoom +25%" aria-label="Zoom +25%">+</button>
+          <button id="facturePdfModalCloseBtn" class="facture-pdf-modal-close" type="button" aria-label="Fermer">&times;</button>
+        </div>
+      </div>
+      <div class="facture-pdf-modal-body">
+        <p id="facturePdfModalStatus" class="facture-pdf-modal-status">Chargement...</p>
+        <div id="facturePdfCanvasWrap" class="facture-pdf-canvas-wrap" hidden>
+          <canvas id="facturePdfCanvas" class="facture-pdf-canvas" aria-label="Apercu du document PDF"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
+
+
+
+
+
+

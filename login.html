@@ -1,0 +1,68 @@
+﻿<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion - Synapse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="loginPage" class="login-page">
+    <div class="login-shell">
+      <section class="brand-panel" aria-label="Branding">
+        <div>
+          <div class="logo-pill logo-pill-dual">
+            <div class="login-logo-row">
+              <img class="login-brand-logo login-brand-logo-rivet" src="./ressources/logo-wh.png" alt="Logo Rivet Electronique">
+              <img class="login-brand-logo login-brand-logo-synapse" src="./ressources/logo-synapse-blanc.png" alt="Logo Synapse">
+            </div>
+          </div>
+        </div>
+        <div class="brand-note">Atelier de r&eacute;paration &eacute;lectronique</div>
+      </section>
+
+      <section class="login-card">
+        <h2 class="login-head">Connexion</h2>
+
+        <form id="loginForm" class="login-form">
+          <div class="field">
+            <svg class="icon-left" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7"/>
+              <path d="m4 8 8 6 8-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <input id="loginEmail" type="email" autocomplete="email" placeholder="Courriel" aria-label="Courriel" required>
+          </div>
+
+          <div class="field">
+            <svg class="icon-left" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="11" width="16" height="9" rx="2" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Mot de passe" aria-label="Mot de passe" required>
+            <button class="icon-btn" id="togglePasswordBtn" type="button" aria-label="Afficher le mot de passe" tabindex="-1">
+              <span id="passwordEyeIcon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3 3 21 21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                  <path d="M10.7 6.2A10.4 10.4 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.4 4.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                  <path d="M6.4 8.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.2-.2 3.2-.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+              </span>
+            </button>
+          </div>
+
+          <button id="loginBtn" type="submit" class="btn-brand">Se connecter</button>
+        </form>
+
+        <p id="loginStatus" class="login-status muted"></p>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
+
