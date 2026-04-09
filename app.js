@@ -3746,12 +3746,15 @@ async function sendCurrentFactureByEmail() {
       throw new Error(detail);
     }
     const emailSentAt = cleanNullableText(data?.email_sent_at) || new Date().toISOString();
+    const nextStatusLabel = cleanNullableText(data?.etat_label) || "Émise";
     updateFactureInStateById(facture?.id, {
       email_sent_at: emailSentAt,
+      etat_label: nextStatusLabel,
       updated_at: cleanNullableText(data?.updated_at) || emailSentAt,
     });
     if (facture && typeof facture === "object") {
       facture.email_sent_at = emailSentAt;
+      facture.etat_label = nextStatusLabel;
     }
     syncFactureEmailSentNoticeUi(facture?.id, emailSentAt);
     renderFacturesList();
@@ -3928,6 +3931,11 @@ function updateFactureInStateById(factureId, patch) {
 function formatFactureEmailSentNotice(value) {
   const formatted = formatDateTime(value);
   return formatted ? `Facture envoyée par courriel le ${formatted}` : "";
+}
+
+function formatFactureEmailSentStamp(value) {
+  const formatted = formatDateTime(value);
+  return formatted ? `Envoyée le ${formatted}` : "";
 }
 
 function syncFactureEmailSentNoticeUi(factureId, sentAt) {
@@ -4579,7 +4587,7 @@ function buildDefaultFacturePayloadForRepair(repair) {
     tps,
     tvq,
     total,
-    status_label: "Émise",
+    status_label: "En rédaction",
     tax_year_label: String(new Date(`${issueDate}T00:00:00`).getFullYear()),
     reparations: [{
       kind: "repair",
@@ -4925,7 +4933,7 @@ function buildDefaultFacturePayloadForProject(project) {
     tps,
     tvq,
     total,
-    status_label: "Émise",
+    status_label: "En rédaction",
     tax_year_label: String(new Date(`${issueDate}T00:00:00`).getFullYear()),
     reparations: [{
       kind: "project",
@@ -5078,6 +5086,7 @@ function matchFactureSearch(facture, query, repairsByItemId) {
   const total = facture?.total == null ? "" : String(facture.total);
   const repCodes = formatFactureRepCodes(facture, repairsByItemId);
   const etat = getFactureEtatDisplay(facture).label;
+  const sentAt = formatDateTime(facture?.email_sent_at);
   const year = resolveFactureYear(facture);
 
   const haystack = normalizeText([
@@ -5088,6 +5097,7 @@ function matchFactureSearch(facture, query, repairsByItemId) {
     total,
     repCodes,
     etat,
+    sentAt,
     year == null ? "" : String(year),
   ].join(" "));
 
@@ -5099,10 +5109,12 @@ function getFactureEtatDisplay(facture) {
   const label = String(rawLabel).trim() || "-";
   const norm = normalizeText(label);
   const isPaid = isPaidValue(label);
+  const isDraft = norm.includes("redaction") || norm === "draft";
   const isIssued = norm.includes("emise");
   const alreadyOverdue = isOverdueLabel(label);
 
   if (isPaid) return { label: "Payée", className: "is-paid" };
+  if (isDraft) return { label: "En rédaction", className: "is-draft" };
   if (alreadyOverdue) return { label: "En retard", className: "is-overdue" };
 
   if (isIssued) {
@@ -5832,18 +5844,21 @@ function renderBonsBoard() {
           ? ` style="${escapeHtml(`--bons-thumb-url:url('${String(thumbnailUrl).replace(/'/g, "%27")}')`)}"`
           : "";
         const facture = getFactureForRepair(repair);
-        const isIssued = Boolean(facture) || isYesValue(repair.fac_issued_label);
-        const isPaid = facture ? isPaidValue(facture.etat_label) : isPaidValue(repair.fac_paid_label);
         const factureEtatDisplay = facture ? getFactureEtatDisplay(facture) : null;
+        const isDraftFacture = factureEtatDisplay?.className === "is-draft";
+        const isIssued = (Boolean(facture) && !isDraftFacture) || isYesValue(repair.fac_issued_label);
+        const isPaid = facture ? isPaidValue(facture.etat_label) : isPaidValue(repair.fac_paid_label);
         const overdueCardClass = factureEtatDisplay?.className === "is-overdue" ? " bons-repair-btn-overdue" : "";
       const factureNumber = formatFactureNumber(facture);
-      const issuedLabel = isIssued
-        ? (factureNumber ? `Facture émise ${factureNumber}` : "Facture émise")
-        : "Facture non émise";
+      const issuedLabel = isDraftFacture
+        ? (factureNumber ? `Facture en rédaction ${factureNumber}` : "Facture en rédaction")
+        : isIssued
+          ? (factureNumber ? `Facture émise ${factureNumber}` : "Facture émise")
+          : "Facture non émise";
       const paidLabel = isPaid ? "Payée" : "Non payée";
-      const issuedBadgeHtml = (!isIssued && showFactureBadges)
+      const issuedBadgeHtml = (!facture && showFactureBadges)
         ? `<button type="button" class="bons-pill bons-pill-issued is-not-issued bons-pill-create-facture-btn" data-facture-create="1" title="Créer une facture">${escapeHtml(issuedLabel)}</button>`
-        : `<span class="bons-pill bons-pill-issued ${isIssued ? "is-issued" : "is-not-issued"}">${escapeHtml(issuedLabel)}</span>`;
+        : `<span class="bons-pill bons-pill-issued ${isDraftFacture ? "is-draft" : (isIssued ? "is-issued" : "is-not-issued")}">${escapeHtml(issuedLabel)}</span>`;
       const paidPillHtml = isIssued
         ? `<span class="bons-pill bons-pill-paid ${isPaid ? "is-paid" : "is-unpaid"}">${escapeHtml(paidLabel)}</span>`
         : "";
@@ -6055,6 +6070,7 @@ function renderFacturesList() {
       <th>Montant total</th>
       <th>Réf.</th>
       <th>Etat</th>
+      <th>Envoyée le</th>
       <th>Actions</th>
     `;
   }
@@ -6119,7 +6135,7 @@ function renderFacturesList() {
     : `${filtered.length} facture(s)`;
 
   if (!filtered.length) {
-    body.innerHTML = `<tr><td class="data-empty" colspan="8">${hasActiveFilters ? "Aucune facture ne correspond aux filtres." : "Aucune facture trouvée."}</td></tr>`;
+    body.innerHTML = `<tr><td class="data-empty" colspan="9">${hasActiveFilters ? "Aucune facture ne correspond aux filtres." : "Aucune facture trouvée."}</td></tr>`;
     return;
   }
 
@@ -6133,6 +6149,7 @@ function renderFacturesList() {
     const etatDisplay = getFactureEtatDisplay(facture);
     const etat = etatDisplay.label;
     const etatClass = etatDisplay.className;
+    const sentAt = formatFactureEmailSentStamp(facture?.email_sent_at) || "-";
     const hasPdf = Boolean(cleanNullableText(facture.pdf_filename));
     const factureId = String(facture.id ?? facture.podio_item_id ?? "");
     const previewTitle = hasPdf ? "Voir le PDF" : "Aucun PDF associé";
@@ -6146,6 +6163,7 @@ function renderFacturesList() {
         <td>${escapeHtml(total)}</td>
         <td>${escapeHtml(repCodes)}</td>
         <td><span class="facture-etat ${etatClass}">${escapeHtml(etat)}</span></td>
+        <td class="facture-sent-cell">${escapeHtml(sentAt)}</td>
         <td class="facture-preview-cell">
           <div class="facture-table-actions">
             <button
@@ -6791,7 +6809,7 @@ async function createFactureRecord(payload) {
         : null,
       raw_title: savedNumero,
       client_title: cleanNullableText(payload?.client_title),
-      etat_label: cleanNullableText(payload?.status_label) || "Émise",
+      etat_label: cleanNullableText(payload?.status_label) || "En rédaction",
       montant_sans_taxes: Number(payload?.subtotal ?? 0),
       tps: Number(payload?.tps ?? 0),
       tvq: Number(payload?.tvq ?? 0),
@@ -6906,7 +6924,7 @@ async function createFactureRecord(payload) {
       : null,
     raw_title: cleanNullableText(data?.numero),
     client_title: cleanNullableText(payload?.client_title),
-    etat_label: cleanNullableText(payload?.status_label) || "Émise",
+    etat_label: cleanNullableText(payload?.status_label) || "En rédaction",
     montant_sans_taxes: Number(payload?.subtotal ?? 0),
     tps: Number(payload?.tps ?? 0),
     tvq: Number(payload?.tvq ?? 0),
@@ -7931,20 +7949,24 @@ function openRepairModal(repair, options = {}) {
     const ageAlert = isCreatingRepair ? null : getRepairAgeAlertTone(repair, selectedStatusKey);
     const showFactureBadges = !isPersonalRepairValue && (selectedStatusKey === "termine" || selectedStatusKey === "remis_client");
     const facture = isCreatingRepair ? null : (getFactureForRepair(repair) || initialFacture);
-    const isIssued = isYesValue(repair.fac_issued_label) || Boolean(facture);
+    const factureEtatDisplay = facture ? getFactureEtatDisplay(facture) : null;
+    const isDraftFacture = factureEtatDisplay?.className === "is-draft";
+    const isIssued = isYesValue(repair.fac_issued_label) || (Boolean(facture) && !isDraftFacture);
     const resolvedPaidValue = facture ? isPaidValue(facture.etat_label) : isPaidValue(repair.fac_paid_label);
     const isPaid = draftFacturePaidValue == null ? resolvedPaidValue : Boolean(draftFacturePaidValue);
-    const factureEtatDisplay = facture ? getFactureEtatDisplay(facture) : null;
     const isOverdue = factureEtatDisplay?.className === "is-overdue";
     const showOverdueInline = showFactureBadges && isIssued && !isPaid && isOverdue;
     const factureNumber = formatFactureNumber(facture);
-    const issuedLabel = isIssued
-      ? (factureNumber ? `Facture émise ${factureNumber}` : "Facture émise")
-      : "Facture non émise";
-    const canOpenIssuedFacturePdf = Boolean(facture && isIssued);
-    const canCreateFacture = !isIssued && showFactureBadges && !isCreatingRepair;
+    const issuedLabel = isDraftFacture
+      ? (factureNumber ? `Facture en rédaction ${factureNumber}` : "Facture en rédaction")
+      : isIssued
+        ? (factureNumber ? `Facture émise ${factureNumber}` : "Facture émise")
+        : "Facture non émise";
+    const canOpenIssuedFacturePdf = Boolean(facture);
+    const canCreateFacture = !facture && showFactureBadges && !isCreatingRepair;
     const paidLabel = isPaid ? "Payée" : "Non payée";
     const canEditFacturePayment = Boolean(facture) && isIssued && showFactureBadges && isEditing && !isCreatingRepair;
+    const sentBadgeLabel = formatFactureEmailSentStamp(facture?.email_sent_at);
     const paidBadgeHtml = canEditFacturePayment
       ? `
           <select id="repairFacturePaidSelect" class="repair-facture-paid-select ${isPaid ? "is-paid" : "is-unpaid"}" aria-label="État de paiement de la facture">
@@ -7952,17 +7974,19 @@ function openRepairModal(repair, options = {}) {
             <option value="paid"${isPaid ? " selected" : ""}>Payée</option>
           </select>
         `
-      : `<span class="bons-pill bons-pill-paid ${isPaid ? "is-paid" : "is-unpaid"}">${escapeHtml(paidLabel)}</span>`;
+      : (isIssued ? `<span class="bons-pill bons-pill-paid ${isPaid ? "is-paid" : "is-unpaid"}">${escapeHtml(paidLabel)}</span>` : "");
     const issuedBadgeHtml = canOpenIssuedFacturePdf
-      ? `<button id="repairFactureIssuedPreviewBtn" type="button" class="bons-pill bons-pill-issued ${isIssued ? "is-issued" : "is-not-issued"} repair-facture-preview-btn" title="Voir la facture">${escapeHtml(issuedLabel)}</button>`
+      ? `<button id="repairFactureIssuedPreviewBtn" type="button" class="bons-pill bons-pill-issued ${isDraftFacture ? "is-draft" : (isIssued ? "is-issued" : "is-not-issued")} repair-facture-preview-btn" title="Voir la facture">${escapeHtml(issuedLabel)}</button>`
       : canCreateFacture
         ? `<button id="repairFactureCreateBtn" type="button" class="bons-pill bons-pill-issued is-not-issued bons-pill-create-facture-btn" title="Créer une facture">${escapeHtml(issuedLabel)}</button>`
-      : `<span class="bons-pill bons-pill-issued ${isIssued ? "is-issued" : "is-not-issued"}">${escapeHtml(issuedLabel)}</span>`;
+      : `<span class="bons-pill bons-pill-issued ${isDraftFacture ? "is-draft" : (isIssued ? "is-issued" : "is-not-issued")}">${escapeHtml(issuedLabel)}</span>`;
     const factureBadgesHtml = showFactureBadges
       ? `
         <span class="repair-modal-title-badges">
           ${issuedBadgeHtml}
-          ${paidBadgeHtml}${showOverdueInline ? '<span class="repair-modal-overdue-inline">En retard !</span>' : ""}
+          ${paidBadgeHtml}
+          ${sentBadgeLabel ? `<span class="bons-pill bons-pill-sent">${escapeHtml(sentBadgeLabel)}</span>` : ""}
+          ${showOverdueInline ? '<span class="repair-modal-overdue-inline">En retard !</span>' : ""}
         </span>
       `
       : "";
@@ -13536,14 +13560,15 @@ function openCreateFactureModal(options = {}) {
   const normalizeFactureStatusChoice = (value) => {
     const text = cleanNullableText(value) || "";
     const normalized = normalizeText(text);
+    if (normalized === "en redaction" || normalized === "redaction" || normalized === "draft") return "En rédaction";
     if (normalized === "payee" || normalized === "paye" || normalized === "paid") return "Payée";
     if (normalized === "en retard" || normalized === "retard") return "En retard";
     if (normalized === "emise" || normalized === "emisse" || normalized === "issued") return "Émise";
-    return text || "Émise";
+    return text || "En rédaction";
   };
   const buildFactureStatusOptionsHtml = (selectedValue) => {
     const currentValue = normalizeFactureStatusChoice(selectedValue);
-    const baseOptions = ["Émise", "Payée", "En retard"];
+    const baseOptions = ["En rédaction", "Émise", "Payée", "En retard"];
     if (!baseOptions.includes(currentValue)) baseOptions.push(currentValue);
     return baseOptions.map((option) => {
       const selected = option === currentValue ? "selected" : "";
@@ -13554,7 +13579,7 @@ function openCreateFactureModal(options = {}) {
   let selectedClientId = "";
   let selectedClientTitle = "";
   let selectedClientCompany = "";
-  let statusLabel = normalizeFactureStatusChoice(editingFacture?.etat_label);
+  let statusLabel = normalizeFactureStatusChoice(editingFacture?.etat_label || (editingFacture ? "Émise" : "En rédaction"));
   let clientPickerOpen = false;
   let selectedRepairs = new Map();
   let selectedProjects = new Map();

@@ -1463,6 +1463,12 @@ html[data-theme="dark"] .bons-repair-btn.bons-repair-btn-overdue {
   background: transparent;
 }
 
+.bons-pill-issued.is-draft {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 42%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
 .bons-pill-paid.is-paid {
   color: var(--ok);
   border-color: color-mix(in srgb, var(--ok) 44%, var(--line));
@@ -1494,6 +1500,12 @@ html[data-theme="dark"] .bons-repair-btn.bons-repair-btn-overdue {
 .bons-pill-create-facture-btn:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--brand) 32%, transparent);
   outline-offset: 2px;
+}
+
+.bons-pill-sent {
+  color: color-mix(in srgb, var(--brand2) 70%, var(--ink));
+  border-color: color-mix(in srgb, var(--brand2) 32%, var(--line));
+  background: color-mix(in srgb, var(--brand2) 10%, transparent);
 }
 
 .projects-view {
@@ -2983,6 +2995,13 @@ html[data-theme="dark"] .project-file-action-btn.is-preview {
   vertical-align: middle;
 }
 
+.facture-sent-cell {
+  min-width: 164px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .facture-table-actions {
   display: inline-flex;
   align-items: center;
@@ -3925,6 +3944,12 @@ html[data-theme="dark"] .clients-highlight {
 }
 
 .facture-etat.is-open {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 44%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.facture-etat.is-draft {
   color: var(--warn);
   border-color: color-mix(in srgb, var(--warn) 44%, var(--line));
   background: color-mix(in srgb, var(--warn) 10%, transparent);
