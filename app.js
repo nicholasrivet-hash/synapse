@@ -3956,6 +3956,16 @@ function getClientReferenceId(client) {
   return null;
 }
 
+function resolveLinkedClientReferenceId(clientItemIdCandidate, linkedClient) {
+  const candidateId = Number(clientItemIdCandidate);
+  if (Number.isInteger(candidateId) && candidateId > 0 && state.clientsByPodioItemId[String(candidateId)]) {
+    return candidateId;
+  }
+  const linkedClientId = getClientReferenceId(linkedClient);
+  if (Number.isInteger(linkedClientId) && linkedClientId > 0) return linkedClientId;
+  return Number.isInteger(candidateId) && candidateId > 0 ? candidateId : null;
+}
+
 function buildClientIndex(clients) {
   const index = {};
   for (const client of clients || []) {
@@ -4350,6 +4360,24 @@ function resolveClientForRepair(repair) {
   }) || null;
 }
 
+function resolveClientForProject(project) {
+  const clientItemId = project?.client_item_id;
+  if (clientItemId != null) {
+    const byId = state.clientsByPodioItemId[String(clientItemId)];
+    if (byId) return byId;
+  }
+
+  const wanted = normalizeText(project?.client_title);
+  if (!wanted) return null;
+  return state.clients.find((client) => {
+    return [
+      client?.title,
+      client?.name,
+      client?.company
+    ].some((field) => normalizeText(field) === wanted);
+  }) || null;
+}
+
 function getFactureForRepair(repair) {
   const itemId = repair?.podio_item_id;
   if (itemId == null) return null;
@@ -4463,8 +4491,7 @@ function getFacturePrefillRepairRow(repair) {
   const podioItemId = Number(repair?.podio_item_id);
   if (!Number.isInteger(podioItemId) || podioItemId === 0) return null;
   const linkedClient = resolveClientForRepair(repair);
-  const clientItemIdRaw = Number(repair?.client_item_id ?? getClientReferenceId(linkedClient));
-  const clientItemId = Number.isInteger(clientItemIdRaw) && clientItemIdRaw !== 0 ? clientItemIdRaw : null;
+  const clientItemId = resolveLinkedClientReferenceId(repair?.client_item_id, linkedClient);
   const manufacturer = cleanNullableText(repair?.manufacturer) || "";
   const model = cleanNullableText(repair?.model) || "";
   const device = [manufacturer, model].filter(Boolean).join(" ").trim();
@@ -4791,7 +4818,7 @@ async function promptRepairFactureCreation(repair) {
 function showProjectFactureCreateDialog(project) {
   if (projectFactureCreateDialogPromise) return projectFactureCreateDialogPromise;
   const projectCode = (cleanNullableText(project?.numero) || "P0000").toUpperCase();
-  const linkedClient = state.clientsByPodioItemId?.[String(project?.client_item_id ?? "")] || null;
+  const linkedClient = resolveClientForProject(project);
   const clientName = linkedClient
     ? formatClientPrimaryName(linkedClient)
     : (cleanNullableText(project?.client_title) || "ce client");
@@ -4857,9 +4884,8 @@ function buildDefaultFacturePayloadForProject(project) {
   }
   const projectCode = (cleanNullableText(project?.numero) || `P${String(projectId).padStart(4, "0")}`).toUpperCase();
   const projectTitle = cleanNullableText(project?.title) || projectCode;
-  const linkedClient = state.clientsByPodioItemId?.[String(project?.client_item_id ?? "")] || null;
-  const clientItemIdRaw = Number(project?.client_item_id ?? getClientReferenceId(linkedClient));
-  const clientItemId = Number.isInteger(clientItemIdRaw) && clientItemIdRaw > 0 ? clientItemIdRaw : null;
+  const linkedClient = resolveClientForProject(project);
+  const clientItemId = resolveLinkedClientReferenceId(project?.client_item_id, linkedClient);
   if (!clientItemId) {
     throw new Error("Impossible de créer la facture : aucun client lié à ce projet.");
   }
@@ -13476,7 +13502,7 @@ function openCreateFactureModal(options = {}) {
 
   const mapFactureRepairRow = (repair) => {
     const linkedClient = resolveClientForRepair(repair);
-    const clientItemId = Number(repair?.client_item_id ?? getClientReferenceId(linkedClient));
+    const clientItemId = resolveLinkedClientReferenceId(repair?.client_item_id, linkedClient);
     const manufacturer = cleanNullableText(repair?.manufacturer) || "";
     const model = cleanNullableText(repair?.model) || "";
     const device = [manufacturer, model].filter(Boolean).join(" ").trim();
@@ -13506,8 +13532,8 @@ function openCreateFactureModal(options = {}) {
     .filter((project) => Number.isInteger(Number(project?.id)))
     .filter((project) => !isPersonalProject(project))
     .map((project) => {
-      const linkedClient = state.clientsByPodioItemId?.[String(project?.client_item_id ?? "")] || null;
-      const clientItemId = Number(project?.client_item_id ?? getClientReferenceId(linkedClient));
+      const linkedClient = resolveClientForProject(project);
+      const clientItemId = resolveLinkedClientReferenceId(project?.client_item_id, linkedClient);
       return {
         ...project,
         projectId: Number(project.id),
