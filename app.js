@@ -76,6 +76,7 @@ const DEFAULT_APP_CONFIG = Object.freeze({
   company_postal_code: "",
   company_country: "Canada",
   company_logo_path: "assets/facturation/rivet-logo-bk.png",
+  invoice_email_message_template: "Bonjour,\n\nVoici la facture {{facture_number}} pour {{context_label}} {{context_value}}.\n\nMerci,\n{{company_name}}",
   purchase_links: DEFAULT_PURCHASE_LINKS,
   purchase_link_digikey: "https://www.digikey.ca/",
   purchase_link_mouser: "https://www.mouser.ca/",
@@ -2010,6 +2011,7 @@ function normalizeAppConfigRow(row) {
     company_postal_code: cleanNullableText(raw.company_postal_code) || "",
     company_country: cleanNullableText(raw.company_country) || DEFAULT_APP_CONFIG.company_country,
     company_logo_path: cleanNullableText(raw.company_logo_path) || DEFAULT_APP_CONFIG.company_logo_path,
+    invoice_email_message_template: cleanNullableText(raw.invoice_email_message_template) || DEFAULT_APP_CONFIG.invoice_email_message_template,
     purchase_links: purchaseLinks,
     purchase_link_digikey: cleanNullableText(
       purchaseLinksByKey.get("digikey")?.url || raw.purchase_link_digikey
@@ -2500,6 +2502,7 @@ async function saveAppConfig(payload) {
     company_postal_code: cleaned.company_postal_code || null,
     company_country: cleaned.company_country || null,
     company_logo_path: cleaned.company_logo_path || null,
+    invoice_email_message_template: cleaned.invoice_email_message_template || null,
     purchase_links: clonePurchaseLinks(cleaned.purchase_links),
     purchase_link_digikey: hasPurchaseLinksPayload
       ? (legacyUrlFromLinks("digikey") || null)
@@ -2548,6 +2551,7 @@ function renderConfigurationView(keepMessage = false) {
   const companyPostalCodeInput = $("configCompanyPostalCodeInput");
   const companyCountryInput = $("configCompanyCountryInput");
   const companyLogoPathInput = $("configCompanyLogoPathInput");
+  const invoiceEmailTemplateInput = $("configInvoiceEmailTemplateInput");
   const purchaseLinksList = $("configPurchaseLinksList");
   const tpsNumberInput = $("configTpsNumberInput");
   const tpsRateInput = $("configTpsRateInput");
@@ -2567,6 +2571,7 @@ function renderConfigurationView(keepMessage = false) {
   const companyPostalCodeText = $("configCompanyPostalCodeText");
   const companyCountryText = $("configCompanyCountryText");
   const companyLogoPathText = $("configCompanyLogoPathText");
+  const invoiceEmailTemplateText = $("configInvoiceEmailTemplateText");
   const tpsNumberText = $("configTpsNumberText");
   const tpsRateText = $("configTpsRateText");
   const tvqNumberText = $("configTvqNumberText");
@@ -2598,6 +2603,7 @@ function renderConfigurationView(keepMessage = false) {
     || !companyPostalCodeInput
     || !companyCountryInput
     || !companyLogoPathInput
+    || !invoiceEmailTemplateInput
     || !purchaseLinksList
     || !tpsNumberInput
     || !tpsRateInput
@@ -2617,6 +2623,7 @@ function renderConfigurationView(keepMessage = false) {
     || !companyPostalCodeText
     || !companyCountryText
     || !companyLogoPathText
+    || !invoiceEmailTemplateText
     || !tpsNumberText
     || !tpsRateText
     || !tvqNumberText
@@ -2652,6 +2659,7 @@ function renderConfigurationView(keepMessage = false) {
     companyPostalCodeInput.value = "";
     companyCountryInput.value = "";
     companyLogoPathInput.value = "";
+    invoiceEmailTemplateInput.value = "";
     tpsNumberInput.value = "";
     tpsRateInput.value = "";
     tvqNumberInput.value = "";
@@ -2670,6 +2678,7 @@ function renderConfigurationView(keepMessage = false) {
     companyPostalCodeText.textContent = "-";
     companyCountryText.textContent = "-";
     companyLogoPathText.textContent = "-";
+    invoiceEmailTemplateText.textContent = "-";
     tpsNumberText.textContent = "-";
     tpsRateText.textContent = "-";
     tvqNumberText.textContent = "-";
@@ -2688,6 +2697,7 @@ function renderConfigurationView(keepMessage = false) {
     setFieldMode(companyPostalCodeInput, companyPostalCodeText, false);
     setFieldMode(companyCountryInput, companyCountryText, false);
     setFieldMode(companyLogoPathInput, companyLogoPathText, false);
+    setFieldMode(invoiceEmailTemplateInput, invoiceEmailTemplateText, false);
     setFieldMode(tpsNumberInput, tpsNumberText, false);
     setFieldMode(tpsRateInput, tpsRateText, false);
     setFieldMode(tvqNumberInput, tvqNumberText, false);
@@ -2729,6 +2739,7 @@ function renderConfigurationView(keepMessage = false) {
   companyPostalCodeInput.value = cfg?.company_postal_code || "";
   companyCountryInput.value = cfg?.company_country || "";
   companyLogoPathInput.value = cfg?.company_logo_path || "";
+  invoiceEmailTemplateInput.value = cfg?.invoice_email_message_template || "";
   tpsNumberInput.value = cfg?.tax_tps_number || "";
   tpsRateInput.value = cfg ? String(normalizeTaxRateNumber(cfg.tax_tps_rate, DEFAULT_APP_CONFIG.tax_tps_rate) * 100) : "";
   tvqNumberInput.value = cfg?.tax_tvq_number || "";
@@ -2747,6 +2758,7 @@ function renderConfigurationView(keepMessage = false) {
   companyPostalCodeText.textContent = cfg?.company_postal_code || "Non défini";
   companyCountryText.textContent = cfg?.company_country || "Non défini";
   companyLogoPathText.textContent = cfg?.company_logo_path || "Non défini";
+  invoiceEmailTemplateText.textContent = cfg?.invoice_email_message_template || "Non défini";
   tpsNumberText.textContent = cfg?.tax_tps_number || "Non defini";
   tpsRateText.textContent = cfg ? formatTaxRateLine(cfg.tax_tps_rate) : "-";
   tvqNumberText.textContent = cfg?.tax_tvq_number || "Non defini";
@@ -2771,6 +2783,7 @@ function renderConfigurationView(keepMessage = false) {
   setFieldMode(companyPostalCodeInput, companyPostalCodeText, editingEntreprise);
   setFieldMode(companyCountryInput, companyCountryText, editingEntreprise);
   setFieldMode(companyLogoPathInput, companyLogoPathText, editingEntreprise);
+  setFieldMode(invoiceEmailTemplateInput, invoiceEmailTemplateText, editingEntreprise);
   setFieldMode(tpsNumberInput, tpsNumberText, editingEntreprise);
   setFieldMode(tpsRateInput, tpsRateText, editingEntreprise);
   setFieldMode(tvqNumberInput, tvqNumberText, editingEntreprise);
@@ -3565,33 +3578,63 @@ function buildFactureEmailDraft(facture) {
   const references = Array.isArray(facture?.reparations) ? facture.reparations : [];
   const primaryRepair = references.map(resolveRepairForFactureReference).find(Boolean) || null;
   const primaryProject = primaryRepair ? null : (references.map(resolveProjectForFactureReference).find(Boolean) || null);
-  const companyName = cleanNullableText(state.appConfig?.company_name) || "";
+  const companyName = cleanNullableText(state.appConfig?.company_name) || "Rivet Electronique";
   const storageRef = buildStorageReferenceFromFilename(facture?.pdf_filename);
   const attachmentFileName = cleanNullableText(storageRef?.objectPath?.split("/").pop())
     || `${factureNumber.replace(/[^\w.-]+/g, "_")}.pdf`;
 
   let subject = factureNumber;
   let messageLine = `Voici la facture ${factureNumber}.`;
+  let contextLabel = "la facture";
+  let contextValue = factureNumber;
+  let repCode = "";
+  let deviceLabel = "";
+  let projectCode = "";
+  let projectTitle = "";
   if (primaryRepair) {
-    const repCode = formatRepairCode(primaryRepair);
-    const deviceLabel = getRepairCardDeviceLabel(primaryRepair) || "l'appareil";
+    repCode = formatRepairCode(primaryRepair);
+    deviceLabel = getRepairCardDeviceLabel(primaryRepair) || "l'appareil";
     subject = `${factureNumber} - ${repCode}`;
     messageLine = `Voici la facture pour la réparation ${repCode} pour le ${deviceLabel}.`;
+    contextLabel = "la réparation";
+    contextValue = `${repCode} pour le ${deviceLabel}`;
   } else if (primaryProject) {
-    const projectCode = cleanNullableText(primaryProject?.numero) || "P0000";
-    const projectTitle = cleanNullableText(primaryProject?.title) || projectCode;
+    projectCode = cleanNullableText(primaryProject?.numero) || "P0000";
+    projectTitle = cleanNullableText(primaryProject?.title) || projectCode;
     subject = `${factureNumber} - ${projectCode}`;
     messageLine = `Voici la facture pour le projet ${projectTitle}.`;
+    contextLabel = "le projet";
+    contextValue = projectTitle;
   }
-
-  const body = [
-    "Bonjour,",
-    "",
-    messageLine,
-    "",
-    "Merci,",
-    companyName || "Rivet Electronique",
-  ].join("\n");
+  const template = cleanNullableText(state.appConfig?.invoice_email_message_template)
+    || DEFAULT_APP_CONFIG.invoice_email_message_template;
+  const replacements = {
+    "{{client_name}}": clientLabel,
+    "{{client_email}}": clientEmail,
+    "{{facture_number}}": factureNumber,
+    "{{rep_code}}": repCode,
+    "{{device_label}}": deviceLabel,
+    "{{project_code}}": projectCode,
+    "{{project_title}}": projectTitle,
+    "{{context_label}}": contextLabel,
+    "{{context_value}}": contextValue,
+    "{{company_name}}": companyName,
+  };
+  let body = template;
+  for (const [token, value] of Object.entries(replacements)) {
+    body = body.replaceAll(token, String(value ?? ""));
+  }
+  body = body.trim();
+  if (!body) {
+    body = [
+      "Bonjour,",
+      "",
+      messageLine,
+      "",
+      "Merci,",
+      companyName,
+    ].join("\n");
+  }
 
   return {
     to: clientEmail,
@@ -16302,6 +16345,7 @@ function bindAppUi() {
   const configCompanyPostalCodeInput = $("configCompanyPostalCodeInput");
   const configCompanyCountryInput = $("configCompanyCountryInput");
   const configCompanyLogoPathInput = $("configCompanyLogoPathInput");
+  const configInvoiceEmailTemplateInput = $("configInvoiceEmailTemplateInput");
   const configPurchaseLinksList = $("configPurchaseLinksList");
   const configTaxReportsList = $("configTaxReportsList");
   const configTpsNumberInput = $("configTpsNumberInput");
@@ -16939,6 +16983,7 @@ function bindAppUi() {
       || !configCompanyPostalCodeInput
       || !configCompanyCountryInput
       || !configCompanyLogoPathInput
+      || !configInvoiceEmailTemplateInput
       || !configTpsNumberInput
       || !configTpsRateInput
       || !configTvqNumberInput
@@ -16958,6 +17003,7 @@ function bindAppUi() {
         company_postal_code: cleanNullableText(configCompanyPostalCodeInput.value),
         company_country: cleanNullableText(configCompanyCountryInput.value),
         company_logo_path: cleanNullableText(configCompanyLogoPathInput.value),
+        invoice_email_message_template: cleanNullableText(configInvoiceEmailTemplateInput.value),
         tax_tps_number: cleanNullableText(configTpsNumberInput.value),
         tax_tps_rate: normalizeTaxRateNumber(configTpsRateInput.value, DEFAULT_APP_CONFIG.tax_tps_rate),
         tax_tvq_number: cleanNullableText(configTvqNumberInput.value),
