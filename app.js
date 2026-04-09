@@ -3689,29 +3689,25 @@ async function openFactureDraftInGmail(facture, draft, fallbackPdfUrl) {
   openUrlInNewTab(buildGmailComposeUrl(draft));
 }
 
-async function sendCurrentFactureByEmail() {
-  const facture = facturePdfModalState.sourceKind === "facture" ? facturePdfModalState.sourceFacture : null;
-  const pdfUrl = cleanNullableText(facturePdfModalState.pdfUrl);
-  if (!facture || !pdfUrl) {
-    window.alert("Aucune facture n'est prête pour l'envoi.");
-    return;
+async function sendFactureByEmail(facture, { fallbackPdfUrl = "", onSuccess = null } = {}) {
+  if (!facture || typeof facture !== "object") {
+    throw new Error("Aucune facture n'est prête pour l'envoi.");
   }
-
   const draft = buildFactureEmailDraft(facture);
   const clientLabel = draft.clientLabel || "ce client";
   const message = draft.to
     ? `Envoyer la facture à "${clientLabel}" ? Si Gmail API est configuré, la facture partira directement avec sa pièce jointe PDF. Sinon, l'app ouvrira Gmail avec un brouillon prérempli.`
     : `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli. Aucun courriel n'est enregistré pour ce client, donc le champ À sera vide. Le PDF sera aussi téléchargé pour que tu puisses l'ajouter en pièce jointe.`;
-  if (!window.confirm(message)) return;
+  if (!window.confirm(message)) return false;
 
   const client = state.authClient || ensureAuthClient();
   if (!draft.to) {
-    await openFactureDraftInGmail(facture, draft, pdfUrl);
-    return;
+    await openFactureDraftInGmail(facture, draft, fallbackPdfUrl);
+    return false;
   }
   if (!client) {
-    await openFactureDraftInGmail(facture, draft, pdfUrl);
-    return;
+    await openFactureDraftInGmail(facture, draft, fallbackPdfUrl);
+    return false;
   }
 
   try {
@@ -3758,18 +3754,35 @@ async function sendCurrentFactureByEmail() {
     }
     syncFactureEmailSentNoticeUi(facture?.id, emailSentAt);
     renderFacturesList();
+    if (typeof onSuccess === "function") {
+      await onSuccess({
+        email_sent_at: emailSentAt,
+        etat_label: nextStatusLabel,
+        updated_at: cleanNullableText(data?.updated_at) || emailSentAt,
+      });
+    }
     window.alert(`Facture envoyée à ${draft.to}.`);
-    return;
+    return true;
   } catch (err) {
     const detail = cleanNullableText(err?.message) || "";
-    await openFactureDraftInGmail(facture, draft, pdfUrl);
+    await openFactureDraftInGmail(facture, draft, fallbackPdfUrl);
     if (detail) {
       window.alert(`L'envoi automatique a échoué: ${detail}\n\nJ'ai ouvert un brouillon Gmail avec le PDF téléchargé pour que tu puisses l'envoyer manuellement.`);
-      return;
+      return false;
     }
     window.alert("L'envoi automatique a échoué. J'ai ouvert un brouillon Gmail avec le PDF téléchargé pour que tu puisses l'envoyer manuellement.");
+    return false;
+  }
+}
+
+async function sendCurrentFactureByEmail() {
+  const facture = facturePdfModalState.sourceKind === "facture" ? facturePdfModalState.sourceFacture : null;
+  const pdfUrl = cleanNullableText(facturePdfModalState.pdfUrl);
+  if (!facture) {
+    window.alert("Aucune facture n'est prête pour l'envoi.");
     return;
   }
+  await sendFactureByEmail(facture, { fallbackPdfUrl: pdfUrl });
 }
 
 function closeFacturePdfModal() {
@@ -8073,6 +8086,10 @@ function openRepairModal(repair, options = {}) {
         ev.preventDefault();
         ev.stopPropagation();
         try {
+          if (isDraftFacture) {
+            openCreateFactureModal({ factureId: facture.id });
+            return;
+          }
           await openFacturePdfPreview(facture);
         } catch (err) {
           window.alert(err?.message || "Impossible d'ouvrir le PDF.");
@@ -13775,6 +13792,31 @@ function openCreateFactureModal(options = {}) {
     return true;
   };
 
+  const getSelectedClientRow = () => {
+    const key = String(selectedClientId || "").trim();
+    if (!key) return null;
+    return clientById[key] || state.clientsByPodioItemId?.[key] || null;
+  };
+
+  const matchesSelectedClient = (itemClientId, linkedClient, fallbackLabel) => {
+    const selectedClientRow = getSelectedClientRow();
+    const selectedKey = String(selectedClientId || "").trim();
+    const itemKey = String(itemClientId ?? "").trim();
+    if (itemKey && itemKey === selectedKey) return true;
+    const selectedReferenceId = getClientReferenceId(selectedClientRow);
+    const linkedReferenceId = getClientReferenceId(linkedClient);
+    if (selectedReferenceId != null && linkedReferenceId != null && String(selectedReferenceId) === String(linkedReferenceId)) {
+      return true;
+    }
+    const selectedLegacyPodioId = Number(selectedClientRow?.podio_item_id);
+    if (itemKey && Number.isInteger(selectedLegacyPodioId) && String(selectedLegacyPodioId) === itemKey) {
+      return true;
+    }
+    const normalizedSelectedTitle = normalizeText(selectedClientTitle || formatClientPrimaryName(selectedClientRow));
+    const normalizedFallbackLabel = normalizeText(fallbackLabel);
+    return Boolean(normalizedSelectedTitle && normalizedFallbackLabel && normalizedSelectedTitle === normalizedFallbackLabel);
+  };
+
   const clearAutoLinesForRepair = (repairItemId) => {
     const key = String(repairItemId ?? "").trim();
     lineItems = lineItems.filter((line) => String(line?.source_repair_item_id ?? "") !== key);
@@ -14256,6 +14298,7 @@ function openCreateFactureModal(options = {}) {
         <div class="facture-actions-right">
           ${editingFacture ? '<button id="factureRefreshRepairsBtn" type="button" class="repair-btn">Rafraîchir les bons</button>' : ""}
           ${editingFacture ? '<button id="factureSyncRepairBtn" type="button" class="repair-btn">Générer le PDF du bon</button>' : ""}
+          ${editingFacture ? '<button id="factureSendBtn" type="button" class="repair-btn">Envoyer</button>' : ""}
           <button id="factureCancelBtn" type="button" class="repair-btn">Annuler</button>
           <button id="factureSaveBtn" type="submit" class="repair-btn repair-btn-primary">Enregistrer</button>
         </div>
@@ -14298,6 +14341,7 @@ function openCreateFactureModal(options = {}) {
   const totalValueEl = $("factureTotalValue");
   const form = $("factureForm");
   const saveBtn = $("factureSaveBtn");
+  const sendBtn = $("factureSendBtn");
   const refreshRepairsBtn = $("factureRefreshRepairsBtn");
   const syncRepairBtn = $("factureSyncRepairBtn");
   const cancelBtn = $("factureCancelBtn");
@@ -14390,11 +14434,15 @@ function openCreateFactureModal(options = {}) {
 
   const renderClientRepairsList = () => {
     if (!clientRepairsList) return;
-    if (!selectedClientId) {
+    if (!selectedClientId && !cleanNullableText(selectedClientTitle)) {
       clientRepairsList.innerHTML = `<p class="repair-client-picker-empty">Sélectionnez d'abord un client.</p>`;
       return;
     }
-    const rows = repairsAll.filter((repair) => String(repair.clientItemId || "") === String(selectedClientId)).slice(0, 80);
+    const rows = repairsAll.filter((repair) => matchesSelectedClient(
+      repair.clientItemId,
+      resolveClientForRepair(repair),
+      repair.clientDisplay,
+    )).slice(0, 80);
     if (!rows.length) {
       clientRepairsList.innerHTML = `<p class="repair-client-picker-empty">Aucune réparation associée à ce client.</p>`;
       return;
@@ -14452,11 +14500,15 @@ function openCreateFactureModal(options = {}) {
 
   const renderClientProjectsList = () => {
     if (!clientProjectsList) return;
-    if (!selectedClientId) {
+    if (!selectedClientId && !cleanNullableText(selectedClientTitle)) {
       clientProjectsList.innerHTML = `<p class="repair-client-picker-empty">Sélectionnez d'abord un client.</p>`;
       return;
     }
-    const rows = projectsAll.filter((project) => String(project.clientItemId || "") === String(selectedClientId)).slice(0, 80);
+    const rows = projectsAll.filter((project) => matchesSelectedClient(
+      project.clientItemId,
+      resolveClientForProject(project),
+      project.clientDisplay,
+    )).slice(0, 80);
     if (!rows.length) {
       clientProjectsList.innerHTML = `<p class="repair-client-picker-empty">Aucun projet associé à ce client.</p>`;
       return;
@@ -14667,6 +14719,7 @@ function openCreateFactureModal(options = {}) {
     renderLineMismatchStates();
     renderTotals();
     if (saveBtn) saveBtn.disabled = saving;
+    if (sendBtn) sendBtn.disabled = saving || !editingFacture;
     if (refreshRepairsBtn) {
       refreshRepairsBtn.disabled = saving;
       refreshRepairsBtn.hidden = !(editingFacture && factureContext === "reparation" && selectedRepairs.size > 0);
@@ -15235,6 +15288,36 @@ function openCreateFactureModal(options = {}) {
   if (syncRepairBtn) {
     syncRepairBtn.addEventListener("click", async () => {
       await saveFactureChanges({ syncRepairSource: true });
+    });
+  }
+
+  if (sendBtn && editingFacture) {
+    sendBtn.addEventListener("click", async () => {
+      if (saving) return;
+      if (hasDirtyData()) {
+        if (messageEl) messageEl.textContent = "Enregistre la facture avant de l'envoyer pour que le PDF soit à jour.";
+        return;
+      }
+      try {
+        saving = true;
+        if (messageEl) messageEl.textContent = "Préparation de l'envoi de la facture...";
+        renderAll();
+        await sendFactureByEmail(editingFacture, {
+          onSuccess: async (result) => {
+            editingFacture.email_sent_at = result?.email_sent_at || editingFacture.email_sent_at;
+            editingFacture.etat_label = result?.etat_label || editingFacture.etat_label;
+            editingFacture.updated_at = result?.updated_at || editingFacture.updated_at;
+            statusLabel = normalizeFactureStatusChoice(editingFacture.etat_label);
+            if (messageEl) messageEl.textContent = "";
+            renderAll();
+          },
+        });
+      } catch (err) {
+        if (messageEl) messageEl.textContent = err?.message || "Impossible d'envoyer la facture.";
+      } finally {
+        saving = false;
+        renderAll();
+      }
     });
   }
 
