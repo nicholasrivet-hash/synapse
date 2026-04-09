@@ -3759,22 +3759,12 @@ async function sendCurrentFactureByEmail() {
     return;
   } catch (err) {
     const detail = cleanNullableText(err?.message) || "";
-    const shouldFallbackToDraft = [
-      "gmail_not_configured",
-      "refresh_token",
-      "oauth",
-      "not found",
-      "failed to send a request to the edge function",
-      "functions_fetch_error",
-      "failed to fetch",
-    ].some((token) => normalizeText(detail).includes(normalizeText(token)));
-    if (!shouldFallbackToDraft) {
-      window.alert(detail || "Impossible d'envoyer la facture par Gmail.");
+    await openFactureDraftInGmail(facture, draft, pdfUrl);
+    if (detail) {
+      window.alert(`L'envoi automatique a échoué: ${detail}\n\nJ'ai ouvert un brouillon Gmail avec le PDF téléchargé pour que tu puisses l'envoyer manuellement.`);
       return;
     }
-
-    await openFactureDraftInGmail(facture, draft, pdfUrl);
-    window.alert("Gmail API n'est pas encore prête ici. J'ai ouvert le brouillon Gmail à la place.");
+    window.alert("L'envoi automatique a échoué. J'ai ouvert un brouillon Gmail avec le PDF téléchargé pour que tu puisses l'envoyer manuellement.");
     return;
   }
 }
