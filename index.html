@@ -604,6 +604,30 @@
                 <p id="configCompanyLogoPathText" class="configuration-value-text">-</p>
                 <input id="configCompanyLogoPathInput" class="configuration-rate-input" type="text" maxlength="260" autocomplete="off" hidden>
               </div>
+              <div class="configuration-field configuration-field--stack">
+                <label for="configInvoiceEmailTemplateInput" class="configuration-label">Message par défaut des factures</label>
+                <p id="configInvoiceEmailTemplateText" class="configuration-value-text configuration-value-text-multiline">-</p>
+                <textarea
+                  id="configInvoiceEmailTemplateInput"
+                  class="configuration-rate-input configuration-template-input"
+                  rows="7"
+                  maxlength="2000"
+                  autocomplete="off"
+                  hidden
+                ></textarea>
+                <p class="configuration-helper-note">
+                  Variables disponibles :
+                  <code>{{facture_number}}</code>,
+                  <code>{{client_name}}</code>,
+                  <code>{{context_label}}</code>,
+                  <code>{{context_value}}</code>,
+                  <code>{{rep_code}}</code>,
+                  <code>{{device_label}}</code>,
+                  <code>{{project_code}}</code>,
+                  <code>{{project_title}}</code>,
+                  <code>{{company_name}}</code>
+                </p>
+              </div>
               <div class="configuration-field">
                 <label for="configTpsNumberInput" class="configuration-label">Num&eacute;ro TPS</label>
                 <p id="configTpsNumberText" class="configuration-value-text">-</p>
