@@ -3715,18 +3715,28 @@ async function sendCurrentFactureByEmail() {
   }
 
   try {
-    const { data, error } = await client.functions.invoke("gmail-send-invoice", {
-      body: {
-        facture_id: Number(facture?.id),
-        to: draft.to,
-        subject: draft.subject,
-        body: draft.body,
-        pdf_filename: cleanNullableText(facture?.pdf_filename),
-        attachment_filename: draft.attachmentFileName,
-      },
-    });
+    let data;
+    let error;
+    try {
+      const result = await client.functions.invoke("gmail-send-invoice", {
+        body: {
+          facture_id: Number(facture?.id),
+          to: draft.to,
+          subject: draft.subject,
+          body: draft.body,
+          pdf_filename: cleanNullableText(facture?.pdf_filename),
+          attachment_filename: draft.attachmentFileName,
+        },
+      });
+      data = result.data;
+      error = result.error;
+    } catch (invokeErr) {
+      const detail = await readEdgeFunctionInvokeErrorDetail(invokeErr);
+      throw new Error(detail || resolveEdgeFunctionInvokeError(invokeErr, "Impossible d'envoyer la facture par Gmail."));
+    }
     if (error) {
-      throw new Error(resolveEdgeFunctionInvokeError(error, "Impossible d'envoyer la facture par Gmail."));
+      const detail = await readEdgeFunctionInvokeErrorDetail(error);
+      throw new Error(detail || resolveEdgeFunctionInvokeError(error, "Impossible d'envoyer la facture par Gmail."));
     }
     if (!data?.ok) {
       const detail = cleanNullableText(data?.detail)
@@ -6436,6 +6446,21 @@ function resolveEdgeFunctionInvokeError(error, fallbackMessage) {
   return direct || fallback;
 }
 
+async function readEdgeFunctionInvokeErrorDetail(err) {
+  const response = err?.context;
+  if (!response) return "";
+  const readable = typeof response.clone === "function" ? response.clone() : response;
+  if (!readable || typeof readable.text !== "function") return "";
+  const rawText = await readable.text().catch(() => "");
+  if (!rawText) return "";
+  try {
+    const parsed = JSON.parse(rawText);
+    return String(parsed?.detail || parsed?.message || parsed?.error || rawText).trim();
+  } catch {
+    return String(rawText).trim();
+  }
+}
+
 function normalizeClientType(value) {
   const text = cleanNullableText(value);
   if (!text) return null;
@@ -6798,20 +6823,6 @@ async function createFactureRecord(payload) {
   }
 
   const directDbMode = !isPodioSyncEnabled();
-  const readFunctionInvokeErrorDetail = async (err) => {
-    const response = err?.context;
-    if (!response) return "";
-    const readable = typeof response.clone === "function" ? response.clone() : response;
-    if (!readable || typeof readable.text !== "function") return "";
-    const rawText = await readable.text().catch(() => "");
-    if (!rawText) return "";
-    try {
-      const parsed = JSON.parse(rawText);
-      return String(parsed?.detail || parsed?.error || parsed?.message || rawText).trim();
-    } catch {
-      return String(rawText).trim();
-    }
-  };
   let data;
   let error;
   try {
@@ -6824,12 +6835,12 @@ async function createFactureRecord(payload) {
     data = result.data;
     error = result.error;
   } catch (invokeErr) {
-    const detail = await readFunctionInvokeErrorDetail(invokeErr);
+    const detail = await readEdgeFunctionInvokeErrorDetail(invokeErr);
     if (detail) throw new Error(detail);
     throw invokeErr instanceof Error ? invokeErr : new Error(String(invokeErr));
   }
   if (error) {
-    const detail = await readFunctionInvokeErrorDetail(error);
+    const detail = await readEdgeFunctionInvokeErrorDetail(error);
     throw new Error(detail || error.message || "Erreur factures-submit.");
   }
   if (!data?.ok) {
