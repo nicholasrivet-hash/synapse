@@ -230,6 +230,8 @@ const facturePdfModalState = {
   open: false,
   title: "Apercu PDF",
   pdfUrl: null,
+  sourceKind: null,
+  sourceFacture: null,
   doc: null,
   page: 1,
   totalPages: 0,
@@ -273,6 +275,12 @@ const FACTURE_EDIT_PENCIL_SVG = `
 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
   <path d="M4.5 19.5h3.8l10-10-3.8-3.8-10 10v3.8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
   <path d="M12.9 6.1 17 10.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+</svg>`;
+
+const FACTURE_SEND_SVG = `
+<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M3.5 11.8 20.4 4.6l-4.8 14.9-4.2-5.1-4.6-2.6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M20.4 4.6 11.4 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
 </svg>`;
 
 const REPAIR_THUMB_ICON_SVG = `
@@ -3020,6 +3028,70 @@ function setPasswordVisibility(visible) {
   eye.innerHTML = visible ? EYE_OPEN_SVG : EYE_CLOSED_SVG;
 }
 
+function clearAuthenticatedAppState() {
+  state.dashboardLoadedFor = null;
+  state.profile = null;
+  state.profileUserId = null;
+  state.repairs = [];
+  state.factures = [];
+  state.expenses = [];
+  state.estimations = [];
+  state.clients = [];
+  state.projects = [];
+  state.taxReports = [];
+  state.expensesLoadError = null;
+  state.appConfig = null;
+  state.appConfigLoaded = false;
+  state.configEditing.honoraires = false;
+  state.configEditing.entreprise = false;
+  state.configEditing.achats = false;
+  state.configEditing.developpement = false;
+  state.configDeveloperDraft = null;
+  state.configPodioSyncDraft = null;
+  state.configPurchaseLinksDraft = null;
+  renderDeveloperModeBanner();
+  state.clientsByPodioItemId = {};
+  state.factureByRepairItemId = {};
+  state.estimationsLoadError = null;
+  state.clientsLoadError = null;
+  state.projectsLoadError = null;
+  state.taxReportsLoadError = null;
+  state.taxReportsLoading = false;
+  state.taxReportsGeneratingYear = null;
+  state.bonsProjectsActiveTab = "bons";
+  state.bonsRepairsActiveTab = "board";
+  state.projectsActiveTab = "board";
+  state.facturationActiveTab = "factures";
+  state.clientsSearchQuery = "";
+  state.projectsSearchQuery = "";
+  state.facturesSearchQuery = "";
+  state.devisSearchQuery = "";
+  state.facturesYearFilter = "all";
+  state.facturesStatusFilter = "all";
+  state.devisStatusFilter = "all";
+  state.bonsOtherStatusFilter = "other";
+  state.bonsOtherSearchQuery = "";
+  state.bonsDrag.activeRepairId = null;
+  state.bonsDrag.sourceColumnKey = null;
+  state.bonsDrag.overColumnKey = null;
+  state.bonsDrag.dropTargetKey = null;
+  state.bonsDrag.isSaving = false;
+  state.bonsDragIgnoreClickUntil = 0;
+  clientModalState.clientId = null;
+  clientModalState.original = null;
+  clientModalState.draft = null;
+  clientModalState.editing = false;
+  clientModalState.saving = false;
+  clientModalState.message = "";
+  clientModalState.isCreating = false;
+  clientModalState.onCreated = null;
+  resetClientAddressSuggestState();
+  projectThumbUrlCache.clear();
+  projectThumbLoadingKeys.clear();
+  repairThumbUrlCache.clear();
+  repairThumbLoadingKeys.clear();
+}
+
 function ensureAuthClient() {
   if (!window.supabase || !window.supabase.createClient) {
     setLoginStatus("Librairie Supabase absente.", "bad");
@@ -3288,6 +3360,8 @@ function resetFacturePdfModalState() {
   facturePdfModalState.open = false;
   facturePdfModalState.title = "Apercu PDF";
   facturePdfModalState.pdfUrl = null;
+  facturePdfModalState.sourceKind = null;
+  facturePdfModalState.sourceFacture = null;
   facturePdfModalState.page = 1;
   facturePdfModalState.totalPages = 0;
   facturePdfModalState.scale = 1.1;
@@ -3325,11 +3399,15 @@ function updateFacturePdfModalControls() {
   const nextBtn = $("facturePdfNextBtn");
   const zoomOutBtn = $("facturePdfZoomOutBtn");
   const zoomInBtn = $("facturePdfZoomInBtn");
+  const sendBtn = $("facturePdfSendBtn");
 
   const hasDoc = Boolean(facturePdfModalState.doc);
   const totalPages = Number(facturePdfModalState.totalPages || 0);
   const page = Number(facturePdfModalState.page || 1);
   const loading = Boolean(facturePdfModalState.loading);
+  const canSend = facturePdfModalState.sourceKind === "facture"
+    && Boolean(facturePdfModalState.sourceFacture)
+    && Boolean(cleanNullableText(facturePdfModalState.pdfUrl));
 
   if (pageInfo) {
     pageInfo.textContent = totalPages > 0 ? `${page} / ${totalPages}` : "- / -";
@@ -3338,6 +3416,19 @@ function updateFacturePdfModalControls() {
   if (nextBtn) nextBtn.disabled = !hasDoc || loading || page >= totalPages;
   if (zoomOutBtn) zoomOutBtn.disabled = !hasDoc || loading || facturePdfModalState.scale <= 0.55;
   if (zoomInBtn) zoomInBtn.disabled = !hasDoc || loading || facturePdfModalState.scale >= 2.8;
+  if (sendBtn) {
+    sendBtn.hidden = !canSend;
+    sendBtn.disabled = !canSend || loading;
+    sendBtn.innerHTML = FACTURE_SEND_SVG;
+    if (canSend) {
+      const draft = buildFactureEmailDraft(facturePdfModalState.sourceFacture);
+      const title = draft.to
+        ? `Envoyer la facture à ${draft.clientLabel}`
+        : `Préparer l'envoi de la facture à ${draft.clientLabel}`;
+      sendBtn.title = title;
+      sendBtn.setAttribute("aria-label", title);
+    }
+  }
 }
 
 async function renderFacturePdfPage() {
@@ -3402,6 +3493,163 @@ function openPdfInNewTab(pdfUrl) {
   return true;
 }
 
+function triggerBrowserDownload(fileUrl, fileName) {
+  const url = cleanNullableText(fileUrl);
+  if (!url) return false;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  if (cleanNullableText(fileName)) anchor.download = cleanNullableText(fileName);
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return true;
+}
+
+function resolveClientForFacture(facture) {
+  const clientItemId = facture?.client_item_id;
+  if (clientItemId != null) {
+    const byId = state.clientsByPodioItemId[String(clientItemId)];
+    if (byId) return byId;
+  }
+
+  const wanted = normalizeText(
+    facture?.client_title
+    || facture?.client_snapshot?.name
+    || facture?.raw_title
+  );
+  if (!wanted) return null;
+  return state.clients.find((client) => {
+    return [
+      client?.title,
+      client?.name,
+      client?.company,
+    ].some((field) => normalizeText(field) === wanted);
+  }) || null;
+}
+
+function resolveRepairForFactureReference(reference) {
+  if (normalizeText(reference?.kind) !== "repair") return null;
+  const itemId = reference?.item_id;
+  if (itemId == null) return null;
+  return (state.repairs || []).find((repair) => String(repair?.podio_item_id) === String(itemId)) || null;
+}
+
+function resolveProjectForFactureReference(reference) {
+  if (normalizeText(reference?.kind) !== "project") return null;
+  const itemId = reference?.item_id;
+  if (itemId == null) return null;
+  return (state.projects || []).find((project) => String(project?.podio_item_id) === String(itemId)) || null;
+}
+
+function buildFactureEmailDraft(facture) {
+  const linkedClient = resolveClientForFacture(facture);
+  const clientLabel = linkedClient
+    ? formatClientPrimaryName(linkedClient)
+    : cleanNullableText(facture?.client_title)
+      || cleanNullableText(facture?.client_snapshot?.name)
+      || cleanNullableText(facture?.raw_title)
+      || "ce client";
+  const clientEmail = cleanNullableText(linkedClient?.email)
+    || cleanNullableText(facture?.client_snapshot?.email)
+    || "";
+  const factureNumber = cleanNullableText(formatFactureListNumber(facture)) || "Facture";
+  const references = Array.isArray(facture?.reparations) ? facture.reparations : [];
+  const primaryRepair = references.map(resolveRepairForFactureReference).find(Boolean) || null;
+  const primaryProject = primaryRepair ? null : (references.map(resolveProjectForFactureReference).find(Boolean) || null);
+  const companyName = cleanNullableText(state.appConfig?.company_name) || "";
+  const storageRef = buildStorageReferenceFromFilename(facture?.pdf_filename);
+  const attachmentFileName = cleanNullableText(storageRef?.objectPath?.split("/").pop())
+    || `${factureNumber.replace(/[^\w.-]+/g, "_")}.pdf`;
+
+  let subject = factureNumber;
+  let messageLine = `Voici la facture ${factureNumber}.`;
+  if (primaryRepair) {
+    const repCode = formatRepairCode(primaryRepair);
+    const deviceLabel = getRepairCardDeviceLabel(primaryRepair) || "l'appareil";
+    subject = `${factureNumber} - ${repCode}`;
+    messageLine = `Voici la facture pour la réparation ${repCode} pour le ${deviceLabel}.`;
+  } else if (primaryProject) {
+    const projectCode = cleanNullableText(primaryProject?.numero) || "P0000";
+    const projectTitle = cleanNullableText(primaryProject?.title) || projectCode;
+    subject = `${factureNumber} - ${projectCode}`;
+    messageLine = `Voici la facture pour le projet ${projectTitle}.`;
+  }
+
+  const body = [
+    "Bonjour,",
+    "",
+    messageLine,
+    "",
+    "Merci,",
+    companyName || "Rivet Electronique",
+  ].join("\n");
+
+  return {
+    to: clientEmail,
+    clientLabel,
+    subject,
+    body,
+    attachmentFileName,
+  };
+}
+
+function buildGmailComposeUrl({ to, subject, body }) {
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    tf: "1",
+  });
+  if (cleanNullableText(to)) params.set("to", cleanNullableText(to));
+  if (cleanNullableText(subject)) params.set("su", cleanNullableText(subject));
+  if (cleanNullableText(body)) params.set("body", cleanNullableText(body));
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+function openUrlInNewTab(url) {
+  const href = cleanNullableText(url);
+  if (!href) return false;
+  const opened = window.open(href, "_blank", "noopener");
+  if (opened) return true;
+  window.location.href = href;
+  return true;
+}
+
+async function sendCurrentFactureByEmail() {
+  const facture = facturePdfModalState.sourceKind === "facture" ? facturePdfModalState.sourceFacture : null;
+  const pdfUrl = cleanNullableText(facturePdfModalState.pdfUrl);
+  if (!facture || !pdfUrl) {
+    window.alert("Aucune facture n'est prête pour l'envoi.");
+    return;
+  }
+
+  const draft = buildFactureEmailDraft(facture);
+  const clientLabel = draft.clientLabel || "ce client";
+  const message = draft.to
+    ? `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli et le PDF sera téléchargé pour que tu puisses l'ajouter en pièce jointe.`
+    : `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli. Aucun courriel n'est enregistré pour ce client, donc le champ À sera vide. Le PDF sera aussi téléchargé pour que tu puisses l'ajouter en pièce jointe.`;
+  if (!window.confirm(message)) return;
+
+  let downloadUrl = pdfUrl;
+  const client = state.authClient || ensureAuthClient();
+  const storageRef = buildStorageReferenceFromFilename(facture?.pdf_filename);
+  if (client && storageRef?.bucket && storageRef?.objectPath) {
+    try {
+      const signed = await client.storage
+        .from(storageRef.bucket)
+        .createSignedUrl(storageRef.objectPath, 900, { download: draft.attachmentFileName });
+      if (!signed?.error && signed?.data?.signedUrl) {
+        downloadUrl = signed.data.signedUrl;
+      }
+    } catch {
+      // fallback to the already opened signed URL
+    }
+  }
+
+  triggerBrowserDownload(downloadUrl, draft.attachmentFileName);
+  openUrlInNewTab(buildGmailComposeUrl(draft));
+}
+
 function closeFacturePdfModal() {
   const modal = $("facturePdfModal");
   if (!modal) return;
@@ -3409,7 +3657,7 @@ function closeFacturePdfModal() {
   resetFacturePdfModalState();
 }
 
-async function openFacturePdfModal(pdfUrl, titleText) {
+async function openFacturePdfModal(pdfUrl, titleText, options = {}) {
   const modal = $("facturePdfModal");
   const title = $("facturePdfModalTitle");
   if (!modal || !title) return false;
@@ -3420,6 +3668,10 @@ async function openFacturePdfModal(pdfUrl, titleText) {
   resetFacturePdfModalState();
   facturePdfModalState.open = true;
   facturePdfModalState.pdfUrl = pdfUrl;
+  facturePdfModalState.sourceKind = cleanNullableText(options?.sourceKind);
+  facturePdfModalState.sourceFacture = options?.sourceFacture && typeof options.sourceFacture === "object"
+    ? options.sourceFacture
+    : null;
   facturePdfModalState.title = cleanNullableText(titleText) || "Apercu PDF";
   title.textContent = facturePdfModalState.title;
 
@@ -3454,7 +3706,10 @@ async function openFacturePdfPreview(facture) {
 
   const pdfUrl = await getFacturePdfUrl(client, storageRef);
   const factureNumber = cleanNullableText(formatFactureListNumber(facture)) || "Facture";
-  const openedInModal = await openFacturePdfModal(pdfUrl, `Apercu PDF - ${factureNumber}`);
+  const openedInModal = await openFacturePdfModal(pdfUrl, `Apercu PDF - ${factureNumber}`, {
+    sourceKind: "facture",
+    sourceFacture: facture,
+  });
   if (!openedInModal) {
     const opened = openPdfInNewTab(pdfUrl);
     if (!opened) throw new Error("Impossible d'ouvrir ce PDF.");
@@ -15818,67 +16073,7 @@ async function handleLogout() {
   const client = ensureAuthClient();
   if (!client) return;
   await client.auth.signOut();
-  state.dashboardLoadedFor = null;
-  state.profile = null;
-  state.profileUserId = null;
-  state.repairs = [];
-  state.factures = [];
-  state.expenses = [];
-  state.estimations = [];
-  state.clients = [];
-  state.projects = [];
-  state.taxReports = [];
-  state.expensesLoadError = null;
-  state.appConfig = null;
-  state.appConfigLoaded = false;
-  state.configEditing.honoraires = false;
-  state.configEditing.entreprise = false;
-  state.configEditing.achats = false;
-  state.configEditing.developpement = false;
-  state.configDeveloperDraft = null;
-  state.configPodioSyncDraft = null;
-  state.configPurchaseLinksDraft = null;
-  renderDeveloperModeBanner();
-  state.clientsByPodioItemId = {};
-  state.factureByRepairItemId = {};
-  state.estimationsLoadError = null;
-  state.clientsLoadError = null;
-  state.projectsLoadError = null;
-  state.taxReportsLoadError = null;
-  state.taxReportsLoading = false;
-  state.taxReportsGeneratingYear = null;
-  state.bonsProjectsActiveTab = "bons";
-  state.bonsRepairsActiveTab = "board";
-  state.projectsActiveTab = "board";
-  state.facturationActiveTab = "factures";
-  state.clientsSearchQuery = "";
-  state.projectsSearchQuery = "";
-  state.facturesSearchQuery = "";
-  state.devisSearchQuery = "";
-  state.facturesYearFilter = "all";
-  state.facturesStatusFilter = "all";
-  state.devisStatusFilter = "all";
-  state.bonsOtherStatusFilter = "other";
-  state.bonsOtherSearchQuery = "";
-  state.bonsDrag.activeRepairId = null;
-  state.bonsDrag.sourceColumnKey = null;
-  state.bonsDrag.overColumnKey = null;
-  state.bonsDrag.dropTargetKey = null;
-  state.bonsDrag.isSaving = false;
-  state.bonsDragIgnoreClickUntil = 0;
-  clientModalState.clientId = null;
-  clientModalState.original = null;
-  clientModalState.draft = null;
-  clientModalState.editing = false;
-  clientModalState.saving = false;
-  clientModalState.message = "";
-  clientModalState.isCreating = false;
-  clientModalState.onCreated = null;
-  resetClientAddressSuggestState();
-  projectThumbUrlCache.clear();
-  projectThumbLoadingKeys.clear();
-  repairThumbUrlCache.clear();
-  repairThumbLoadingKeys.clear();
+  clearAuthenticatedAppState();
   state.session = null;
   goToLogin();
 }
@@ -16007,6 +16202,7 @@ function bindAppUi() {
   const facturePdfNextBtn = $("facturePdfNextBtn");
   const facturePdfZoomOutBtn = $("facturePdfZoomOutBtn");
   const facturePdfZoomInBtn = $("facturePdfZoomInBtn");
+  const facturePdfSendBtn = $("facturePdfSendBtn");
   if (!btn || !menu) return;
 
   // Evite l'effet de "flash" de valeurs restaurees par le navigateur
@@ -17031,6 +17227,11 @@ function bindAppUi() {
       if (facturePdfModalState.loading || !facturePdfModalState.doc) return;
       facturePdfModalState.scale = Math.min(2.8, Math.round((facturePdfModalState.scale + 0.25) * 100) / 100);
       renderFacturePdfPage();
+    });
+  }
+  if (facturePdfSendBtn) {
+    facturePdfSendBtn.addEventListener("click", () => {
+      sendCurrentFactureByEmail();
     });
   }
 

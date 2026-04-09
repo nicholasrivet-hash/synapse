@@ -3380,6 +3380,20 @@ html[data-theme="dark"] .clients-highlight {
   cursor: not-allowed;
 }
 
+.facture-pdf-modal-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.facture-pdf-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
 .facture-pdf-page-info {
   min-width: 84px;
   text-align: center;
