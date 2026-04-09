@@ -322,7 +322,7 @@ function normalizeText(value) {
     .trim();
 }
 
-function isMissingFacturesNumeroColumnError(error) {
+function isMissingFacturesColumnError(error, columnName) {
   if (!error || typeof error !== "object") return false;
   const code = String(error.code ?? "").trim();
   const message = String(error.message ?? "").toLowerCase();
@@ -330,7 +330,15 @@ function isMissingFacturesNumeroColumnError(error) {
   const hint = String(error.hint ?? "").toLowerCase();
   const text = `${message} ${details} ${hint}`;
   if (code !== "42703" && !text.includes("does not exist")) return false;
-  return text.includes("numero") && text.includes("factures");
+  return text.includes(String(columnName ?? "").toLowerCase()) && text.includes("factures");
+}
+
+function isMissingFacturesNumeroColumnError(error) {
+  return isMissingFacturesColumnError(error, "numero");
+}
+
+function isMissingFacturesEmailSentAtColumnError(error) {
+  return isMissingFacturesColumnError(error, "email_sent_at");
 }
 
 function htmlToText(value) {
@@ -3615,22 +3623,8 @@ function openUrlInNewTab(url) {
   return true;
 }
 
-async function sendCurrentFactureByEmail() {
-  const facture = facturePdfModalState.sourceKind === "facture" ? facturePdfModalState.sourceFacture : null;
-  const pdfUrl = cleanNullableText(facturePdfModalState.pdfUrl);
-  if (!facture || !pdfUrl) {
-    window.alert("Aucune facture n'est prête pour l'envoi.");
-    return;
-  }
-
-  const draft = buildFactureEmailDraft(facture);
-  const clientLabel = draft.clientLabel || "ce client";
-  const message = draft.to
-    ? `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli et le PDF sera téléchargé pour que tu puisses l'ajouter en pièce jointe.`
-    : `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli. Aucun courriel n'est enregistré pour ce client, donc le champ À sera vide. Le PDF sera aussi téléchargé pour que tu puisses l'ajouter en pièce jointe.`;
-  if (!window.confirm(message)) return;
-
-  let downloadUrl = pdfUrl;
+async function openFactureDraftInGmail(facture, draft, fallbackPdfUrl) {
+  let downloadUrl = cleanNullableText(fallbackPdfUrl);
   const client = state.authClient || ensureAuthClient();
   const storageRef = buildStorageReferenceFromFilename(facture?.pdf_filename);
   if (client && storageRef?.bucket && storageRef?.objectPath) {
@@ -3646,8 +3640,90 @@ async function sendCurrentFactureByEmail() {
     }
   }
 
-  triggerBrowserDownload(downloadUrl, draft.attachmentFileName);
+  if (downloadUrl) {
+    triggerBrowserDownload(downloadUrl, draft.attachmentFileName);
+  }
   openUrlInNewTab(buildGmailComposeUrl(draft));
+}
+
+async function sendCurrentFactureByEmail() {
+  const facture = facturePdfModalState.sourceKind === "facture" ? facturePdfModalState.sourceFacture : null;
+  const pdfUrl = cleanNullableText(facturePdfModalState.pdfUrl);
+  if (!facture || !pdfUrl) {
+    window.alert("Aucune facture n'est prête pour l'envoi.");
+    return;
+  }
+
+  const draft = buildFactureEmailDraft(facture);
+  const clientLabel = draft.clientLabel || "ce client";
+  const message = draft.to
+    ? `Envoyer la facture à "${clientLabel}" ? Si Gmail API est configuré, la facture partira directement avec sa pièce jointe PDF. Sinon, l'app ouvrira Gmail avec un brouillon prérempli.`
+    : `Envoyer la facture à "${clientLabel}" ? Gmail va s'ouvrir avec un brouillon prérempli. Aucun courriel n'est enregistré pour ce client, donc le champ À sera vide. Le PDF sera aussi téléchargé pour que tu puisses l'ajouter en pièce jointe.`;
+  if (!window.confirm(message)) return;
+
+  const client = state.authClient || ensureAuthClient();
+  if (!draft.to) {
+    await openFactureDraftInGmail(facture, draft, pdfUrl);
+    return;
+  }
+  if (!client) {
+    await openFactureDraftInGmail(facture, draft, pdfUrl);
+    return;
+  }
+
+  try {
+    const { data, error } = await client.functions.invoke("gmail-send-invoice", {
+      body: {
+        facture_id: Number(facture?.id),
+        to: draft.to,
+        subject: draft.subject,
+        body: draft.body,
+        pdf_filename: cleanNullableText(facture?.pdf_filename),
+        attachment_filename: draft.attachmentFileName,
+      },
+    });
+    if (error) {
+      throw new Error(resolveEdgeFunctionInvokeError(error, "Impossible d'envoyer la facture par Gmail."));
+    }
+    if (!data?.ok) {
+      const detail = cleanNullableText(data?.detail)
+        || cleanNullableText(data?.message)
+        || cleanNullableText(data?.error)
+        || "Impossible d'envoyer la facture par Gmail.";
+      throw new Error(detail);
+    }
+    const emailSentAt = cleanNullableText(data?.email_sent_at) || new Date().toISOString();
+    updateFactureInStateById(facture?.id, {
+      email_sent_at: emailSentAt,
+      updated_at: cleanNullableText(data?.updated_at) || emailSentAt,
+    });
+    if (facture && typeof facture === "object") {
+      facture.email_sent_at = emailSentAt;
+    }
+    syncFactureEmailSentNoticeUi(facture?.id, emailSentAt);
+    renderFacturesList();
+    window.alert(`Facture envoyée à ${draft.to}.`);
+    return;
+  } catch (err) {
+    const detail = cleanNullableText(err?.message) || "";
+    const shouldFallbackToDraft = [
+      "gmail_not_configured",
+      "refresh_token",
+      "oauth",
+      "not found",
+      "failed to send a request to the edge function",
+      "functions_fetch_error",
+      "failed to fetch",
+    ].some((token) => normalizeText(detail).includes(normalizeText(token)));
+    if (!shouldFallbackToDraft) {
+      window.alert(detail || "Impossible d'envoyer la facture par Gmail.");
+      return;
+    }
+
+    await openFactureDraftInGmail(facture, draft, pdfUrl);
+    window.alert("Gmail API n'est pas encore prête ici. J'ai ouvert le brouillon Gmail à la place.");
+    return;
+  }
 }
 
 function closeFacturePdfModal() {
@@ -3788,6 +3864,37 @@ function buildFactureIndex(factures) {
     }
   }
   return index;
+}
+
+function updateFactureInStateById(factureId, patch) {
+  const id = String(factureId ?? "").trim();
+  if (!id || !patch || typeof patch !== "object") return null;
+  const currentFactures = Array.isArray(state.factures) ? state.factures : [];
+  let updatedRow = null;
+  state.factures = currentFactures.map((row) => {
+    if (String(row?.id) !== id) return row;
+    updatedRow = { ...row, ...patch };
+    return updatedRow;
+  });
+  if (updatedRow) {
+    state.factureByRepairItemId = buildFactureIndex(state.factures);
+  }
+  return updatedRow;
+}
+
+function formatFactureEmailSentNotice(value) {
+  const formatted = formatDateTime(value);
+  return formatted ? `Facture envoyée par courriel le ${formatted}` : "";
+}
+
+function syncFactureEmailSentNoticeUi(factureId, sentAt) {
+  const noticeEl = $("factureEmailSentNotice");
+  if (!noticeEl) return;
+  const modalFactureId = String(noticeEl.getAttribute("data-facture-id") ?? "").trim();
+  if (!modalFactureId || modalFactureId !== String(factureId ?? "").trim()) return;
+  const text = formatFactureEmailSentNotice(sentAt);
+  noticeEl.textContent = text;
+  noticeEl.hidden = !text;
 }
 
 function getClientReferenceId(client) {
@@ -6635,6 +6742,7 @@ async function createFactureRecord(payload) {
       date_echeance: cleanNullableText(payload?.date_echeance),
       desc_problem: cleanNullableText(payload?.desc_problem),
       desc_done: cleanNullableText(payload?.desc_done),
+      email_sent_at: null,
       ...storageMeta,
       created_at: now,
       updated_at: now,
@@ -6702,10 +6810,13 @@ async function createFactureRecord(payload) {
   };
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const selectColsWithNumero = "id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at";
-  const selectColsWithoutNumero = "id,podio_item_id,podio_app_item_id,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at";
+  const selectColsWithNumero = "id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,email_sent_at,updated_at,created_at";
+  const selectColsWithoutNumero = "id,podio_item_id,podio_app_item_id,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,email_sent_at,updated_at,created_at";
+  const selectColsWithoutNumeroOrEmail = "id,podio_item_id,podio_app_item_id,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at";
+  const selectColsWithNumeroWithoutEmail = "id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at";
   let selectCols = selectColsWithNumero;
   let retriedWithoutNumero = false;
+  let retriedWithoutEmailSentAt = false;
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const { data: syncedRow, error: fetchErr } = await client
@@ -6724,6 +6835,11 @@ async function createFactureRecord(payload) {
     if (!retriedWithoutNumero && isMissingFacturesNumeroColumnError(fetchErr)) {
       selectCols = selectColsWithoutNumero;
       retriedWithoutNumero = true;
+      continue;
+    }
+    if (!retriedWithoutEmailSentAt && isMissingFacturesEmailSentAtColumnError(fetchErr)) {
+      selectCols = retriedWithoutNumero ? selectColsWithoutNumeroOrEmail : selectColsWithNumeroWithoutEmail;
+      retriedWithoutEmailSentAt = true;
       continue;
     }
     await sleep(500);
@@ -6755,6 +6871,7 @@ async function createFactureRecord(payload) {
     date_echeance: cleanNullableText(payload?.date_echeance),
     desc_problem: cleanNullableText(payload?.desc_problem),
     desc_done: cleanNullableText(payload?.desc_done),
+    email_sent_at: null,
     pdf_filename: cleanNullableText(data?.pdf_filename),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -13863,6 +13980,7 @@ function openCreateFactureModal(options = {}) {
   };
 
   hydrateFromExistingFacture();
+  const emailSentNotice = formatFactureEmailSentNotice(editingFacture?.email_sent_at);
 
   body.innerHTML = `
     <form id="factureForm" class="facture-form">
@@ -13953,6 +14071,12 @@ function openCreateFactureModal(options = {}) {
             <label for="factureApplyTaxesInput">Appliquer les taxes</label>
           </div>
         </div>
+        <p
+          id="factureEmailSentNotice"
+          class="facture-email-sent-notice"
+          data-facture-id="${escapeHtml(String(editingFacture?.id ?? ""))}"
+          ${emailSentNotice ? "" : "hidden"}
+        >${escapeHtml(emailSentNotice)}</p>
         <div class="facture-lines-table-wrap">
           <table class="facture-lines-table">
             <thead>
@@ -15881,7 +16005,7 @@ async function loadDashboard() {
 
   const facturesQuery = client
     .from("factures")
-    .select("id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at")
+    .select("id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,email_sent_at,updated_at,created_at")
     .order("updated_at", { ascending: false });
 
   const estimationsQuery = client
@@ -15931,8 +16055,20 @@ async function loadDashboard() {
   if (isMissingFacturesNumeroColumnError(facturesRes?.error)) {
     facturesRes = await client
       .from("factures")
-      .select("id,podio_item_id,podio_app_item_id,reparations,lines,company_snapshot,pdf_filename,raw_title,client_title,etat_label,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at")
+      .select("id,podio_item_id,podio_app_item_id,reparations,lines,company_snapshot,pdf_filename,raw_title,client_title,etat_label,total,date_emission,date_echeance,desc_problem,desc_done,email_sent_at,updated_at,created_at")
       .order("updated_at", { ascending: false });
+  }
+  if (isMissingFacturesEmailSentAtColumnError(facturesRes?.error)) {
+    facturesRes = await client
+      .from("factures")
+      .select("id,podio_item_id,podio_app_item_id,numero,client_item_id,client_title,reparations,lines,company_snapshot,pdf_filename,raw_title,etat_label,montant_sans_taxes,tps,tvq,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at")
+      .order("updated_at", { ascending: false });
+    if (isMissingFacturesNumeroColumnError(facturesRes?.error)) {
+      facturesRes = await client
+        .from("factures")
+        .select("id,podio_item_id,podio_app_item_id,reparations,lines,company_snapshot,pdf_filename,raw_title,client_title,etat_label,total,date_emission,date_echeance,desc_problem,desc_done,updated_at,created_at")
+        .order("updated_at", { ascending: false });
+    }
   }
 
   state.repairs = repairsRes?.data || [];
