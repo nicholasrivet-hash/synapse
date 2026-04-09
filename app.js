@@ -13735,16 +13735,44 @@ function openCreateFactureModal(options = {}) {
 
   const setClientFromId = (clientId) => {
     const key = String(clientId ?? "").trim();
-    if (!key || !clientById[key]) {
+    const row = key
+      ? (clientById[key] || state.clientsByPodioItemId?.[key] || null)
+      : null;
+    if (!key || !row) {
       selectedClientId = "";
       selectedClientTitle = "";
       selectedClientCompany = "";
-      return;
+      return false;
     }
-    const row = clientById[key];
-    selectedClientId = key;
+    selectedClientId = String(getClientReferenceId(row) ?? key);
     selectedClientTitle = formatClientPrimaryName(row);
     selectedClientCompany = cleanNullableText(row?.company) || "";
+    return true;
+  };
+
+  const setClientFromFallbackLabel = (clientLabel, clientCompany = "") => {
+    const normalizedLabel = normalizeText(clientLabel);
+    if (!normalizedLabel) {
+      selectedClientId = "";
+      selectedClientTitle = "";
+      selectedClientCompany = "";
+      return false;
+    }
+    const matchedClient = sortedClients.find((client) => {
+      return [
+        formatClientPrimaryName(client),
+        client?.title,
+        client?.name,
+        client?.company,
+      ].some((field) => normalizeText(field) === normalizedLabel);
+    }) || null;
+    if (matchedClient) {
+      return setClientFromId(String(getClientReferenceId(matchedClient) ?? ""));
+    }
+    selectedClientId = "";
+    selectedClientTitle = String(clientLabel ?? "").trim();
+    selectedClientCompany = cleanNullableText(clientCompany) || "";
+    return true;
   };
 
   const clearAutoLinesForRepair = (repairItemId) => {
@@ -13909,9 +13937,15 @@ function openCreateFactureModal(options = {}) {
       const ok = window.confirm("Cette réparation appartient à un autre client. Changer le client et remplacer la sélection actuelle ?");
       if (!ok) return;
       clearSelectedRepairsAndAutoLines();
-      setClientFromId(repairClientId);
+      if (!setClientFromId(repairClientId)) {
+        setClientFromFallbackLabel(repairRow.clientDisplay, repairRow.clientCompany);
+      }
     } else if (!selectedClientId && repairClientId) {
-      setClientFromId(repairClientId);
+      if (!setClientFromId(repairClientId)) {
+        setClientFromFallbackLabel(repairRow.clientDisplay, repairRow.clientCompany);
+      }
+    } else if (!selectedClientId) {
+      setClientFromFallbackLabel(repairRow.clientDisplay, repairRow.clientCompany);
     }
 
     selectedRepairs.set(repairKey, repairRow);
@@ -13933,9 +13967,15 @@ function openCreateFactureModal(options = {}) {
       const ok = window.confirm("Ce projet appartient à un autre client. Changer le client et remplacer la sélection actuelle ?");
       if (!ok) return;
       clearSelectedProjectsAndAutoLines();
-      setClientFromId(projectClientId);
+      if (!setClientFromId(projectClientId)) {
+        setClientFromFallbackLabel(projectRow.clientDisplay, projectRow.clientCompany);
+      }
     } else if (!selectedClientId && projectClientId) {
-      setClientFromId(projectClientId);
+      if (!setClientFromId(projectClientId)) {
+        setClientFromFallbackLabel(projectRow.clientDisplay, projectRow.clientCompany);
+      }
+    } else if (!selectedClientId) {
+      setClientFromFallbackLabel(projectRow.clientDisplay, projectRow.clientCompany);
     }
 
     clearSelectedProjectsAndAutoLines();
